@@ -3,6 +3,12 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, N
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub struct Bitboard(u64);
 
+impl From<u64> for Bitboard {
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
 impl Not for Bitboard {
     type Output = Self;
     fn not(self) -> Self::Output {
