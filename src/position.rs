@@ -1,5 +1,6 @@
 use crate::bitboard::Bitboard;
 use crate::color::Color;
+use crate::movegen::{Move, MoveKind};
 use crate::piece::{Piece, PieceType};
 use crate::square::{File, Rank, Square};
 
@@ -57,6 +58,13 @@ impl From<CastleFlag> for u8 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum Evaluation {
+    Stalemate,
+    Score(f32),
+    MateIn(i32), // Positive for white, negative for black
+}
+
 impl Position {
     // Misc data pulls
     pub const fn to_move(&self) -> Color {
@@ -95,16 +103,20 @@ impl Position {
         self.state().castle_rights & cf_u8 == cf_u8
     }
     pub fn can_castle(&self, cf: CastleFlag) -> bool {
-        if cfg!(feature = "strict-checks") && !self.has_castle(cf) {
+        if cfg!(feature = "strict_checks") && !self.has_castle(cf) {
             return false;
         }
         todo!()
     }
 
-    // State access. First is not public for "obvious" reasons
+    // State access. First two are not public for "obvious" reasons. Namely, we don't want a reference that can become invalidated.
     const fn state(&self) -> &State {
         // SAFETY: This is always non-null, and only accessed from here. Also is created from correct pointer, and so is not misaligned.
         unsafe { self.state.as_ref() }
+    }
+    const unsafe fn state_mut(&mut self) -> &mut State {
+        // SAFETY: Up to the caller
+        unsafe { self.state.as_mut() }
     }
     pub const fn ep(&self) -> Option<Square> {
         self.state().en_passant
@@ -121,4 +133,66 @@ impl Position {
     pub const fn rule50(&self) -> i32 {
         self.state().halfmoves
     }
+
+    // Move related
+    pub fn is_legal(&self, mov: Move) -> bool {
+        if cfg!(feature = "strict_checks") && !self.is_pseudo_legal(mov) {
+            return false;
+        }
+        todo!();
+    }
+    pub fn is_pseudo_legal(&self, mov: Move) -> bool {
+        let src = mov.from();
+        let tar = mov.to();
+        let kind = mov.kind();
+
+        if src == tar {
+            return false;
+        }
+
+        let us = self.to_move();
+        let them = !us;
+        let our_pieces = self.color(us);
+        let their_pieces = self.color(!us);
+
+        let Some(mover) = self.piece_on(src) else {
+            return false; // No piece!
+        };
+
+        if mover.color() != us {
+            return false;
+        }
+
+        let opt_taken = self.piece_on(tar);
+
+        if opt_taken.map(|p| p.color()) == Some(us) {
+            return false; // Cannot take own piece.
+        }
+
+        if kind == MoveKind::Castle {
+            let dist = src.distance(tar);
+            if mover.kind() != PieceType::King {
+                return false;
+            }
+            if dist != 2 {
+                return false; // Castling is always a 2-square king move
+            }
+            let between = Bitboard::interval(src, tar) | Bitboard::from(tar);
+        }
+
+        true
+    }
+    pub fn make_move(&mut self, mov: Move) {
+        todo!()
+    }
+    pub fn unmake_move(&mut self, mov: Move) {
+        todo!()
+    }
+
+    // Evalutation
+    pub fn evaluate(&self) -> Evaluation {
+        todo!()
+    }
+
+    // Rest private helpers
 }

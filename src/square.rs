@@ -52,6 +52,23 @@ impl Square {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 & 7) }
     }
+
+    pub fn distance(self, other: Square) -> i32 {
+        let rank_dist = (self.rank() as u8).abs_diff(other.rank() as u8);
+        let file_dist = (self.file() as u8).abs_diff(other.file() as u8);
+        rank_dist.max(file_dist) as i32
+    }
+
+    pub fn same_line(self, other: Square) -> bool {
+        if self.rank() == other.rank() || self.file() == other.file() {
+            return true;
+        }
+
+        let file_diff = (self.file() as u8).abs_diff(other.file() as u8);
+        let rank_diff = (self.rank() as u8).abs_diff(other.rank() as u8);
+
+        file_diff == rank_diff
+    }
 }
 
 impl From<Square> for u8 {
