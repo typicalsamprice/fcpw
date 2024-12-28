@@ -6,6 +6,11 @@ use crate::square::{File, Rank, Square};
 pub struct Bitboard(u64);
 
 impl Bitboard {
+    #[inline]
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
     pub fn lsb(self) -> Square {
         assert_ne!(self.0, 0);
         let index = self.0.trailing_zeros() as u8;
@@ -91,7 +96,7 @@ impl std::fmt::Display for Bitboard {
 
 impl From<u64> for Bitboard {
     fn from(value: u64) -> Self {
-        Self(value)
+        Self::new(value)
     }
 }
 impl From<Bitboard> for u64 {
@@ -102,7 +107,7 @@ impl From<Bitboard> for u64 {
 
 impl From<Bitboard> for bool {
     fn from(value: Bitboard) -> Self {
-        bool::from(value.0)
+        value.0 != 0
     }
 }
 
