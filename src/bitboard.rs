@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Neg, Not};
 
 use crate::square::{File, Rank, Square};
 
@@ -167,6 +167,12 @@ impl Not for Bitboard {
     type Output = Self;
     fn not(self) -> Self::Output {
         Self(self.0.not())
+    }
+}
+impl Neg for Bitboard {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(self.0.wrapping_neg())
     }
 }
 
