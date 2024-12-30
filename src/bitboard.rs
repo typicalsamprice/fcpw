@@ -1,4 +1,5 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Neg, Not};
+use std::ops::{Shl, ShlAssign, Shr, ShrAssign};
 
 use crate::square::{File, Rank, Square};
 
@@ -281,5 +282,39 @@ impl BitXorAssign for Bitboard {
 impl BitXorAssign<&Bitboard> for Bitboard {
     fn bitxor_assign(&mut self, rhs: &Bitboard) {
         self.0 ^= rhs.0;
+    }
+}
+
+impl Shl<i32> for Bitboard {
+    type Output = Self;
+    fn shl(self, rhs: i32) -> Self::Output {
+        assert!(rhs.abs() < 64);
+        if rhs < 0 {
+            Self::new(self.0 >> rhs.abs())
+        } else {
+            Self::new(self.0 << rhs)
+        }
+    }
+}
+impl Shr<i32> for Bitboard {
+    type Output = Self;
+    fn shr(self, rhs: i32) -> Self::Output {
+        assert!(rhs.abs() < 64);
+        if rhs < 0 {
+            Self::new(self.0 << rhs.abs())
+        } else {
+            Self::new(self.0 >> rhs)
+        }
+    }
+}
+
+impl ShlAssign<i32> for Bitboard {
+    fn shl_assign(&mut self, rhs: i32) {
+        *self = *self << rhs;
+    }
+}
+impl ShrAssign<i32> for Bitboard {
+    fn shr_assign(&mut self, rhs: i32) {
+        *self = *self >> rhs;
     }
 }
