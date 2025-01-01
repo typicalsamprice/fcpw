@@ -186,6 +186,15 @@ impl Direction {
             Direction::SouthWest,
         ]
     }
+
+    #[inline]
+    pub const fn is_forward(self) -> bool {
+        use Direction::*;
+        match self {
+            North | NorthEast | NorthWest | East => true,
+            _ => false,
+        }
+    }
 }
 
 impl Not for Direction {

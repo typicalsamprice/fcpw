@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 // TODO Precompute elements
 // - Piece moves, including sliding pieces (start with rays for simplicity, transition to magic bitboards if required)
 use crate::bitboard::Bitboard;
+use crate::color::Color;
 use crate::square::{Direction, Square};
 
 static IS_INIT: OnceLock<bool> = OnceLock::new();
@@ -58,9 +59,81 @@ pub fn initialize() {
     IS_INIT.set(true).unwrap();
 }
 
-pub fn ray(square: Square, dir: Direction) -> Bitboard {
+// TODO Maybe store in a module not named `precompute`?
+pub(crate) fn ray(square: Square, dir: Direction) -> Bitboard {
     unsafe { BB_RAYS[square as usize][dir as usize] }
 }
-pub fn line(a: Square, b: Square) -> Bitboard {
+pub(crate) fn line(a: Square, b: Square) -> Bitboard {
     unsafe { BB_LINES[a as usize][b as usize] }
+}
+
+pub(crate) fn pawn_attacks(square: Square, color: Color) -> Bitboard {
+    unsafe { ATT_PAWNS[square as usize][color as usize] }
+}
+pub(crate) fn knight_attacks(square: Square) -> Bitboard {
+    unsafe { ATT_KNIGHT[square as usize] }
+}
+pub(crate) fn king_attacks(square: Square) -> Bitboard {
+    unsafe { ATT_KING[square as usize] }
+}
+
+pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    let mut rv = 0.into();
+
+    for dir in Direction::diagonal() {
+        let att = ray(square, dir);
+        let possible = att & occupancy;
+        if bool::from(possible) {
+            let blocker = if dir.is_forward() {
+                possible.lsb()
+            } else {
+                possible.msb()
+            };
+            rv |= att ^ ray(blocker, dir);
+        } else {
+            rv |= att;
+        }
+    }
+
+    rv
+}
+pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    let mut rv = 0.into();
+
+    for dir in Direction::orthogonal() {
+        let att = ray(square, dir);
+        let possible = att & occupancy;
+        if bool::from(possible) {
+            let blocker = if dir.is_forward() {
+                possible.lsb()
+            } else {
+                possible.msb()
+            };
+            rv |= att ^ ray(blocker, dir);
+        } else {
+            rv |= att;
+        }
+    }
+
+    rv
+}
+pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    let mut rv = 0.into();
+
+    for dir in Direction::all() {
+        let att = ray(square, dir);
+        let possible = att & occupancy;
+        if bool::from(possible) {
+            let blocker = if dir.is_forward() {
+                possible.lsb()
+            } else {
+                possible.msb()
+            };
+            rv |= att ^ ray(blocker, dir);
+        } else {
+            rv |= att;
+        }
+    }
+
+    rv
 }
