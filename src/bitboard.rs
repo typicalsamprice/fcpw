@@ -1,7 +1,8 @@
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Neg, Not};
 use std::ops::{Shl, ShlAssign, Shr, ShrAssign};
 
-use crate::square::{File, Rank, Square};
+use crate::precompute;
+use crate::square::{Direction, File, Rank, Square};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub struct Bitboard(u64);
@@ -18,52 +19,38 @@ impl Bitboard {
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
         unsafe { std::mem::transmute(index) }
     }
+    pub fn without_lsb(self) -> Self {
+        Self::new(self.0 & self.0.wrapping_sub(1))
+    }
+
+    pub fn msb(self) -> Square {
+        assert_ne!(self.0, 0);
+        let index = self.0.leading_zeros() as u8;
+        // SAFETY: This index is less than 64, since the internal u64 is nonzero.
+        unsafe { std::mem::transmute(index) }
+    }
+
+    #[inline]
     pub fn has(self, sq: Square) -> bool {
         (self & Self::from(sq)).0 > 0
     }
 
+    #[inline]
     pub fn more_than_one(self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) > 0
     }
 
+    #[inline]
     pub fn popcount(self) -> i32 {
         self.0.count_ones() as i32
     }
 
     pub fn interval(a: Square, b: Square) -> Self {
-        // TODO Cache this
-        let mut rv = 0.into();
-
-        if !a.same_line(b) || a == b {
-            return rv;
-        }
-
-        if a > b {
-            return Bitboard::interval(b, a);
-        }
-
-        let mut cur_u = a as u8;
-        let b_u8 = b as u8;
-
-        // We have to find the increment we'll use.
-        let inc = if a.rank() == b.rank() {
-            8
-        } else if a.file() == b.file() {
-            1
-        } else if a.file() < b.file() {
-            9
+        if let Some(dir) = a.dir_to(b) {
+            precompute::ray(a, dir) & precompute::ray(b, !dir)
         } else {
-            7
-        };
-
-        while cur_u + inc < b_u8 {
-            cur_u += inc;
-            // Safety: this is less than 64, since it is less than b_u8 < 64.
-            let s: Square = unsafe { std::mem::transmute(cur_u) };
-            rv |= Bitboard::from(s);
+            Self::new(0)
         }
-
-        rv
     }
 }
 
@@ -77,7 +64,7 @@ impl std::fmt::Display for Bitboard {
         for fake_rank_index in 0..8 {
             let rank_index = 7 - fake_rank_index;
             for file_index in 0..8 {
-                let sq_index: u8 = (file_index << 3) + rank_index;
+                let sq_index: u8 = (rank_index << 3) + file_index;
                 let s: Square = unsafe { std::mem::transmute(sq_index) };
                 if self.has(s) {
                     bb_str += "X";
@@ -96,40 +83,47 @@ impl std::fmt::Display for Bitboard {
 }
 
 impl From<u64> for Bitboard {
+    #[inline]
     fn from(value: u64) -> Self {
         Self::new(value)
     }
 }
 impl From<Bitboard> for u64 {
+    #[inline]
     fn from(value: Bitboard) -> Self {
         value.0
     }
 }
 
 impl From<Bitboard> for bool {
+    #[inline]
     fn from(value: Bitboard) -> Self {
         value.0 != 0
     }
 }
 
 impl From<Square> for Bitboard {
+    #[inline]
     fn from(value: Square) -> Self {
         Self(1u64 << (value as u8))
     }
 }
 impl From<File> for Bitboard {
+    #[inline]
     fn from(value: File) -> Self {
         let bb = 0x0101010101010101u64;
         Self(bb << (value as u8))
     }
 }
 impl From<Rank> for Bitboard {
+    #[inline]
     fn from(value: Rank) -> Self {
         let shift = (value as u8) * 8;
         Self(0xffu64 << shift)
     }
 }
 impl From<&[Square]> for Bitboard {
+    #[inline]
     fn from(squares: &[Square]) -> Self {
         let mut rv = Self::from(0);
         for &sq in squares {
@@ -139,6 +133,7 @@ impl From<&[Square]> for Bitboard {
     }
 }
 impl<const N: usize> From<[Square; N]> for Bitboard {
+    #[inline]
     fn from(squares: [Square; N]) -> Self {
         Self::from(&squares[..])
     }
@@ -156,9 +151,21 @@ impl Iterator for BitboardIter {
         }
     }
 }
+impl DoubleEndedIterator for BitboardIter {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if u64::from(self.0) == 0 {
+            None
+        } else {
+            let s = self.0.msb();
+            self.0 ^= Bitboard::from(s);
+            Some(s)
+        }
+    }
+}
 impl IntoIterator for Bitboard {
     type Item = Square;
     type IntoIter = BitboardIter;
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         BitboardIter(self)
     }
@@ -166,12 +173,14 @@ impl IntoIterator for Bitboard {
 
 impl Not for Bitboard {
     type Output = Self;
+    #[inline]
     fn not(self) -> Self::Output {
         Self(self.0.not())
     }
 }
 impl Neg for Bitboard {
     type Output = Self;
+    #[inline]
     fn neg(self) -> Self::Output {
         Self(self.0.wrapping_neg())
     }
@@ -179,24 +188,28 @@ impl Neg for Bitboard {
 
 impl BitAnd for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 & rhs.0)
     }
 }
 impl BitAnd<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitand(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 & rhs.0)
     }
 }
 impl BitAnd for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitand(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 & rhs.0)
     }
 }
 impl BitAnd<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitand(self, rhs: Bitboard) -> Self::Output {
         Bitboard(self.0 & rhs.0)
     }
@@ -204,24 +217,28 @@ impl BitAnd<Bitboard> for &Bitboard {
 
 impl BitOr for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 | rhs.0)
     }
 }
 impl BitOr<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitor(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 | rhs.0)
     }
 }
 impl BitOr for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitor(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 | rhs.0)
     }
 }
 impl BitOr<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitor(self, rhs: Bitboard) -> Self::Output {
         Bitboard(self.0 | rhs.0)
     }
@@ -229,57 +246,67 @@ impl BitOr<Bitboard> for &Bitboard {
 
 impl BitXor for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitxor(self, rhs: Self) -> Self::Output {
         Bitboard(self.0 ^ rhs.0)
     }
 }
 impl BitXor<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitxor(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 ^ rhs.0)
     }
 }
 impl BitXor for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitxor(self, rhs: &Bitboard) -> Self::Output {
         Bitboard(self.0 ^ rhs.0)
     }
 }
 impl BitXor<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitxor(self, rhs: Bitboard) -> Self::Output {
         Bitboard(self.0 ^ rhs.0)
     }
 }
 
 impl BitAndAssign for Bitboard {
+    #[inline]
     fn bitand_assign(&mut self, rhs: Self) {
         self.0 &= rhs.0;
     }
 }
 impl BitAndAssign<&Bitboard> for Bitboard {
+    #[inline]
     fn bitand_assign(&mut self, rhs: &Bitboard) {
         self.0 &= rhs.0;
     }
 }
 
 impl BitOrAssign for Bitboard {
+    #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
     }
 }
 impl BitOrAssign<&Bitboard> for Bitboard {
+    #[inline]
     fn bitor_assign(&mut self, rhs: &Bitboard) {
         self.0 |= rhs.0;
     }
 }
 
 impl BitXorAssign for Bitboard {
+    #[inline]
     fn bitxor_assign(&mut self, rhs: Self) {
         self.0 ^= rhs.0;
     }
 }
 impl BitXorAssign<&Bitboard> for Bitboard {
+    #[inline]
     fn bitxor_assign(&mut self, rhs: &Bitboard) {
         self.0 ^= rhs.0;
     }
@@ -287,34 +314,56 @@ impl BitXorAssign<&Bitboard> for Bitboard {
 
 impl Shl<i32> for Bitboard {
     type Output = Self;
+    #[inline]
     fn shl(self, rhs: i32) -> Self::Output {
-        assert!(rhs.abs() < 64);
-        if rhs < 0 {
-            Self::new(self.0 >> rhs.abs())
-        } else {
-            Self::new(self.0 << rhs)
-        }
+        assert!(rhs < 64);
+        assert!(rhs >= 0);
+        Self::new(self.0.shl(rhs))
     }
 }
 impl Shr<i32> for Bitboard {
     type Output = Self;
+    #[inline]
     fn shr(self, rhs: i32) -> Self::Output {
-        assert!(rhs.abs() < 64);
-        if rhs < 0 {
-            Self::new(self.0 << rhs.abs())
-        } else {
-            Self::new(self.0 >> rhs)
-        }
+        assert!(rhs < 64);
+        assert!(rhs >= 0);
+        Self::new(self.0.shr(rhs))
     }
 }
 
 impl ShlAssign<i32> for Bitboard {
+    #[inline]
     fn shl_assign(&mut self, rhs: i32) {
         *self = *self << rhs;
     }
 }
 impl ShrAssign<i32> for Bitboard {
+    #[inline]
     fn shr_assign(&mut self, rhs: i32) {
         *self = *self >> rhs;
+    }
+}
+
+impl Shl<Direction> for Bitboard {
+    type Output = Self;
+    #[inline]
+    fn shl(self, rhs: Direction) -> Self::Output {
+        use Direction::*;
+        match rhs {
+            North => self << 8,
+            South => self >> 8,
+            East => (self << 1) & !Bitboard::from(File::A),
+            West => (self >> 1) & !Bitboard::from(File::H),
+            NorthWest => self << North << West,
+            NorthEast => self << North << East,
+            SouthEast => self << South << East,
+            SouthWest => self << South << West,
+        }
+    }
+}
+impl ShlAssign<Direction> for Bitboard {
+    #[inline]
+    fn shl_assign(&mut self, rhs: Direction) {
+        *self = *self << rhs;
     }
 }

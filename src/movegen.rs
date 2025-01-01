@@ -13,7 +13,7 @@ pub struct Move {
     kind: MoveKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MoveKind {
     Normal,
     Castle,
@@ -49,6 +49,46 @@ impl Move {
         }
 
         Self { from, to, kind }
+    }
+
+    // Get a `Move` from a UCI-encoded move. That is, a move that only has the `from` and `to` designations.
+    // This just involves filling in the gaps
+    pub fn new_from_uci(uci_str: &[u8], pos: &Position) -> Option<Self> {
+        if uci_str.len() < 4 || uci_str.len() > 5 {
+            return None;
+        }
+        let from = &uci_str[0..2];
+        let to = &uci_str[2..4];
+
+        let promo_type = if uci_str.len() == 5 {
+            Some(match uci_str[4] {
+                b'n' => PieceType::Knight,
+                b'b' => PieceType::Bishop,
+                b'r' => PieceType::Rook,
+                b'q' => PieceType::Queen,
+                _ => return None, // Not a valid promotion => Not a valid move.
+            })
+        } else {
+            None
+        };
+        let from_sq = Square::try_from(from).ok()?;
+        let to_sq = Square::try_from(to).ok()?;
+        let mut kind = MoveKind::Normal;
+
+        let mover = pos.piece_on(from_sq)?;
+        if mover.kind() == PieceType::King && from_sq.distance(to_sq) == 2 {
+            kind = MoveKind::Castle;
+        } else if Some(to_sq) == pos.ep() && mover.kind() == PieceType::Pawn {
+            kind = MoveKind::EnPassant;
+        } else if to_sq.rank() == mover.color().promo_rank() && mover.kind() == PieceType::Pawn {
+            kind = MoveKind::Promotion(promo_type?);
+        }
+
+        if promo_type.is_some() && kind < MoveKind::Promotion(PieceType::Pawn) {
+            return None; // Malformed, cannot promote if not a promotion-type move.
+        }
+
+        Some(Self::new_with_kind(from_sq, to_sq, kind))
     }
 
     pub const fn from(self) -> Square {

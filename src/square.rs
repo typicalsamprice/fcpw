@@ -1,4 +1,5 @@
 use std::mem::transmute;
+use std::ops::Not;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[rustfmt::skip]
@@ -59,7 +60,40 @@ impl Square {
         rank_dist.max(file_dist) as i32
     }
 
+    pub fn dir_to(self, other: Square) -> Option<Direction> {
+        if !self.same_line(other) {
+            return None;
+        }
+
+        if self.rank() == other.rank() {
+            if self > other {
+                return Some(Direction::West);
+            } else {
+                return Some(Direction::East);
+            }
+        } else if self.file() == other.file() {
+            if self > other {
+                return Some(Direction::South);
+            } else {
+                return Some(Direction::North);
+            }
+        }
+
+        Some(
+            match (self.rank() > other.rank(), self.file() > other.file()) {
+                (true, true) => Direction::SouthWest,
+                (true, false) => Direction::SouthEast,
+                (false, true) => Direction::NorthWest,
+                (false, false) => Direction::NorthEast,
+            },
+        )
+    }
+
     pub fn same_line(self, other: Square) -> bool {
+        if self == other {
+            return false; // Unhelpful to say true.
+        }
+
         if self.rank() == other.rank() || self.file() == other.file() {
             return true;
         }
@@ -74,5 +108,100 @@ impl Square {
 impl From<Square> for u8 {
     fn from(value: Square) -> Self {
         value as Self
+    }
+}
+
+impl TryFrom<[u8; 2]> for Square {
+    type Error = ();
+    fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
+        if value[0] < b'a' || value[1] < b'0' {
+            return Err(());
+        }
+
+        let f = value[0] - b'a';
+        let r = value[1] - b'0';
+
+        if f >= 8 || r >= 8 {
+            return Err(());
+        }
+
+        // SAFETY: Bounds checked above.
+        let file = unsafe { std::mem::transmute(f) };
+        let rank = unsafe { std::mem::transmute(r) };
+        Ok(Self::new(file, rank))
+    }
+}
+impl TryFrom<&[u8]> for Square {
+    type Error = ();
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() != 2 {
+            Err(())
+        } else {
+            Self::try_from([value[0], value[1]])
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    North,
+    South,
+    East,
+    West,
+    NorthEast,
+    SouthEast,
+    NorthWest,
+    SouthWest,
+}
+
+impl Direction {
+    #[inline]
+    pub const fn all() -> [Self; 8] {
+        [
+            Direction::North,
+            Direction::South,
+            Direction::East,
+            Direction::West,
+            Direction::NorthEast,
+            Direction::SouthEast,
+            Direction::NorthWest,
+            Direction::SouthWest,
+        ]
+    }
+    #[inline]
+    pub const fn orthogonal() -> [Self; 4] {
+        [
+            Direction::North,
+            Direction::South,
+            Direction::East,
+            Direction::West,
+        ]
+    }
+    #[inline]
+    pub const fn diagonal() -> [Self; 4] {
+        [
+            Direction::NorthEast,
+            Direction::SouthEast,
+            Direction::NorthWest,
+            Direction::SouthWest,
+        ]
+    }
+}
+
+impl Not for Direction {
+    type Output = Self;
+    #[inline]
+    fn not(self) -> Self::Output {
+        use Direction::*;
+        match self {
+            North => South,
+            South => North,
+            East => West,
+            West => East,
+            NorthEast => SouthWest,
+            SouthWest => NorthEast,
+            NorthWest => SouthEast,
+            SouthEast => NorthWest,
+        }
     }
 }

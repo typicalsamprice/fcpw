@@ -1,0 +1,66 @@
+use std::sync::OnceLock;
+
+// TODO Precompute elements
+// - Piece moves, including sliding pieces (start with rays for simplicity, transition to magic bitboards if required)
+use crate::bitboard::Bitboard;
+use crate::square::{Direction, Square};
+
+static IS_INIT: OnceLock<bool> = OnceLock::new();
+
+const BB_ZERO: Bitboard = Bitboard::new(0);
+const BB_FULL: Bitboard = Bitboard::new(!0u64);
+
+static mut BB_RAYS: [[Bitboard; 8]; 64] = [[BB_ZERO; 8]; 64];
+static mut BB_LINES: [[Bitboard; 64]; 64] = [[BB_ZERO; 64]; 64];
+
+static mut ATT_KNIGHT: [Bitboard; 64] = [BB_ZERO; 64];
+static mut ATT_KING: [Bitboard; 64] = [BB_ZERO; 64];
+static mut ATT_PAWNS: [[Bitboard; 2]; 64] = [[BB_ZERO; 2]; 64];
+
+pub fn initialize() {
+    if IS_INIT.get() == Some(&true) {
+        return;
+    }
+
+    for square in BB_FULL {
+        for d in Direction::all() {
+            let mut s = Bitboard::from(square);
+            let mut r = BB_ZERO;
+            while bool::from(s) {
+                s <<= d;
+                r |= s;
+            }
+            unsafe { BB_RAYS[square as usize][d as usize] = r };
+        }
+
+        for other in BB_FULL {
+            // If it's not on the same line OR the entry is nonzero, we can continue forward.
+            if !square.same_line(other)
+                || bool::from(unsafe { BB_LINES[square as usize][other as usize] })
+            {
+                continue;
+            }
+
+            // SAFETY: We know they are on the same line, so it cannot be `None`.
+            let a = unsafe { square.dir_to(other).unwrap_unchecked() };
+            let b = unsafe { other.dir_to(square).unwrap_unchecked() };
+
+            unsafe {
+                let line = BB_RAYS[square as usize][a as usize]
+                    | BB_RAYS[square as usize][b as usize]
+                    | Bitboard::from(square);
+                BB_LINES[square as usize][other as usize] = line;
+                BB_LINES[other as usize][square as usize] = line;
+            }
+        }
+    }
+
+    IS_INIT.set(true).unwrap();
+}
+
+pub fn ray(square: Square, dir: Direction) -> Bitboard {
+    unsafe { BB_RAYS[square as usize][dir as usize] }
+}
+pub fn line(a: Square, b: Square) -> Bitboard {
+    unsafe { BB_LINES[a as usize][b as usize] }
+}

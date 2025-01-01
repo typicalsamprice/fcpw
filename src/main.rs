@@ -3,17 +3,18 @@ mod color;
 mod movegen;
 mod piece;
 mod position;
+mod precompute;
 mod square;
 
 use bitboard::Bitboard;
-use square::Square::*;
+use square::*;
+use Direction::*;
+use Square::*;
 
 fn main() {
-    let s = Bitboard::from([A1, B3, C5, F2, H1, H8]);
-    let a1h8 = Bitboard::interval(H8, A1);
-    println!("{s}");
-    println!("{a1h8}");
-    for sq in s {
-        println!("{sq:?}");
-    }
+    precompute::initialize();
+    let x = Bitboard::interval(A1, H8);
+    let y = precompute::line(A1, G8);
+    println!("{x}");
+    println!("{y}");
 }
