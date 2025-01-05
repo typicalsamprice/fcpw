@@ -108,6 +108,15 @@ impl From<Square> for Bitboard {
         Self(1u64 << (value as u8))
     }
 }
+impl From<Option<Square>> for Bitboard {
+    #[inline]
+    fn from(value: Option<Square>) -> Self {
+        match value {
+            Some(s) => Self::from(s),
+            None => Self::new(0),
+        }
+    }
+}
 impl From<File> for Bitboard {
     #[inline]
     fn from(value: File) -> Self {
@@ -122,20 +131,32 @@ impl From<Rank> for Bitboard {
         Self(0xffu64 << shift)
     }
 }
-impl From<&[Square]> for Bitboard {
+impl<T> From<&[T]> for Bitboard
+where
+    T: Into<Bitboard> + Copy,
+{
     #[inline]
-    fn from(squares: &[Square]) -> Self {
-        let mut rv = Self::from(0);
-        for &sq in squares {
-            rv |= Self::from(sq);
+    fn from(value: &[T]) -> Self {
+        let mut rv = 0.into();
+        for &v in value {
+            rv |= v.into();
         }
         rv
     }
 }
-impl<const N: usize> From<[Square; N]> for Bitboard {
-    #[inline]
-    fn from(squares: [Square; N]) -> Self {
-        Self::from(&squares[..])
+
+impl<const N: usize, T> From<[T; N]> for Bitboard
+where
+    T: Into<Bitboard>,
+{
+    fn from(value: [T; N]) -> Self {
+        let mut rv = 0.into();
+
+        for v in value {
+            rv |= v.into();
+        }
+
+        rv
     }
 }
 
