@@ -10,17 +10,10 @@ pub enum Color {
 
 impl Color {
     #[inline]
-    pub const fn back_rank(self) -> Rank {
+    pub const fn relative_rank(self, rank: Rank) -> Rank {
         match self {
-            Color::White => Rank::One,
-            Color::Black => Rank::Eight,
-        }
-    }
-    #[inline]
-    pub const fn promo_rank(self) -> Rank {
-        match self {
-            Color::White => Rank::Eight,
-            Color::Black => Rank::One,
+            Color::White => rank,
+            Color::Black => unsafe { std::mem::transmute(7 - rank as u8) },
         }
     }
 }

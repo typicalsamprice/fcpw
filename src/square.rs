@@ -1,6 +1,8 @@
 use std::mem::transmute;
 use std::ops::Not;
 
+use crate::bitboard::Bitboard;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[rustfmt::skip]
 pub enum Square {
@@ -39,21 +41,25 @@ pub enum Rank {
 }
 
 impl Square {
+    #[inline]
     pub const fn new(file: File, rank: Rank) -> Self {
         let sq_idx = ((file as u8) << 3) + (rank as u8);
         // SAFETY: Bounds of file/rank enums make this bounded propertly in [0, 63].
         unsafe { transmute(sq_idx) }
     }
 
+    #[inline]
     pub const fn file(self) -> File {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 >> 3) }
     }
+    #[inline]
     pub const fn rank(self) -> Rank {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 & 7) }
     }
 
+    #[inline]
     pub fn distance(self, other: Square) -> i32 {
         let rank_dist = (self.rank() as u8).abs_diff(other.rank() as u8);
         let file_dist = (self.file() as u8).abs_diff(other.file() as u8);
@@ -102,6 +108,15 @@ impl Square {
         let rank_diff = (self.rank() as u8).abs_diff(other.rank() as u8);
 
         file_diff == rank_diff
+    }
+
+    #[inline]
+    pub fn shift(self, dir: Direction) -> Option<Self> {
+        (Bitboard::from(self) << dir).into_iter().next()
+    }
+    #[inline]
+    pub unsafe fn shift_unchecked(self, dir: Direction) -> Self {
+        self.shift(dir).unwrap_unchecked()
     }
 }
 
@@ -211,6 +226,52 @@ impl Not for Direction {
             SouthWest => NorthEast,
             NorthWest => SouthEast,
             SouthEast => NorthWest,
+        }
+    }
+}
+
+impl std::fmt::Display for Square {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.file(), self.rank())
+    }
+}
+impl std::fmt::Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", char::from(*self))
+    }
+}
+impl std::fmt::Display for Rank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", char::from(*self))
+    }
+}
+
+impl From<Rank> for char {
+    fn from(value: Rank) -> Self {
+        (b'1' + value as u8) as char
+    }
+}
+impl From<File> for char {
+    fn from(value: File) -> Self {
+        (b'a' + value as u8) as char
+    }
+}
+
+impl TryFrom<u8> for Rank {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0..8 => Ok(unsafe { std::mem::transmute(value) }),
+            8.. => Err(()),
+        }
+    }
+}
+impl TryFrom<u8> for File {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0..8 => Ok(unsafe { std::mem::transmute(value) }),
+            8.. => Err(()),
         }
     }
 }

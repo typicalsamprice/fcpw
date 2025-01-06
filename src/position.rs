@@ -4,8 +4,6 @@ use crate::movegen::{Move, MoveKind};
 use crate::piece::{Piece, PieceType};
 use crate::square::{File, Rank, Square};
 
-use std::ptr::NonNull;
-
 #[derive(Debug)]
 pub struct Position {
     to_move: Color,
@@ -15,7 +13,7 @@ pub struct Position {
     pieces: [Bitboard; 6],
     board: [Option<Piece>; 64],
 
-    state: NonNull<State>,
+    state: Box<State>,
 }
 
 #[derive(Debug)]
@@ -30,7 +28,7 @@ pub struct State {
 
     halfmoves: i32,
 
-    previous: Option<NonNull<State>>,
+    previous: Option<Box<State>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +40,63 @@ pub enum CastleFlag {
     BlackLong,
     BlackAll,
     All,
+}
+
+impl CastleFlag {
+    pub const fn color(self) -> Color {
+        match self {
+            Self::All => panic!("CastleFlag::color called on CastleFlag::All"),
+            Self::WhiteAll | Self::WhiteShort | Self::WhiteLong => Color::White,
+            Self::BlackAll | Self::BlackShort | Self::BlackLong => Color::Black,
+        }
+    }
+    pub const fn from_square(self) -> Square {
+        match self.color() {
+            Color::White => Square::E1,
+            Color::Black => Square::E8,
+        }
+    }
+    pub const fn to_square(self) -> Square {
+        match self {
+            Self::All | Self::WhiteAll | Self::BlackAll => {
+                panic!("CastleFlag::to_square called on ambiguous variant.")
+            }
+            Self::WhiteShort => Square::G1,
+            Self::WhiteLong => Square::C1,
+            Self::BlackShort => Square::G8,
+            Self::BlackLong => Square::C8,
+        }
+    }
+    pub const fn rook_square(self) -> Square {
+        match self {
+            Self::All | Self::WhiteAll | Self::BlackAll => {
+                panic!("CastleFlag::to_square called on ambiguous variant.")
+            }
+            Self::WhiteShort => Square::H1,
+            Self::WhiteLong => Square::A1,
+            Self::BlackShort => Square::H8,
+            Self::BlackLong => Square::A8,
+        }
+    }
+
+    pub const fn variants_for(color: Color) -> [Self; 2] {
+        match color {
+            Color::White => [Self::WhiteShort, Self::WhiteLong],
+            Color::Black => [Self::BlackShort, Self::BlackLong],
+        }
+    }
+    pub const fn short_for(color: Color) -> Self {
+        match color {
+            Color::White => Self::WhiteShort,
+            Color::Black => Self::BlackShort,
+        }
+    }
+    pub const fn long_for(color: Color) -> Self {
+        match color {
+            Color::White => Self::WhiteLong,
+            Color::Black => Self::BlackLong,
+        }
+    }
 }
 
 impl From<CastleFlag> for u8 {
@@ -66,6 +121,151 @@ pub enum Evaluation {
 }
 
 impl Position {
+    pub const STARTING_FEN: &'static str =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+    pub fn new() -> Self {
+        Self {
+            board: [None; 64],
+            colors: [Bitboard::new(0); 2],
+            moves: 0,
+            pieces: [Bitboard::new(0); 6],
+            to_move: Color::White,
+            // SAFETY: We just created this.
+            state: State::new(),
+        }
+    }
+
+    pub fn new_from_fen(fen: &str) -> Self {
+        let mut pos = Self::new();
+
+        let mut iter = fen.chars();
+
+        let mut rank = Rank::Eight;
+        let mut file = File::A;
+
+        for x in iter.by_ref() {
+            if x == ' ' {
+                break;
+            } else if x == '/' {
+                if cfg!(feature = "strict_checks") && file != File::H {
+                    panic!("Rank not filled in Position::new_from_fen");
+                }
+
+                if rank == Rank::One {
+                    panic!("Too many ranks in FEN given to Position::new_from_fen");
+                }
+
+                file = File::A;
+                // SAFETY: We know rank != Rank::One and so (rank as u8) > 0.
+                rank = unsafe { Rank::try_from(rank as u8 - 1).unwrap_unchecked() };
+                continue;
+            }
+
+            if ('1'..='8').contains(&x) {
+                let shiftness = x as u8 - b'0';
+                let file_index = file as u8 + shiftness;
+
+                if file_index >= 8 {
+                    if cfg!(feature = "strict_checks") && file_index > 8 {
+                        panic!("File overflow in Position::new_from_fen");
+                    }
+
+                    file = File::H;
+                    continue;
+                }
+
+                // SAFETY: We know file_index < 8.
+                file = unsafe { File::try_from(file_index).unwrap_unchecked() };
+                continue;
+            }
+
+            let Ok(p) = Piece::try_from(x) else {
+                panic!("Unknown piece passed in FEN: {}", x);
+            };
+            let s = Square::new(file, rank);
+            pos.add_piece(p, s);
+
+            if file != File::H {
+                // SAFETY: (file as u8) < 8 right now.
+                file = unsafe { File::try_from(file as u8 + 1).unwrap_unchecked() };
+            }
+        }
+
+        match iter.next() {
+            Some('w') | Some('-') => pos.to_move = Color::White,
+            Some('b') => pos.to_move = Color::Black,
+            Some(x) => panic!("Position::new_from_fen: Unknown side to move in FEN: {}", x),
+            None => panic!("Position::new_from_fen: FEN ended early, no side to move given."),
+        }
+
+        match iter.next() {
+            Some(' ') => (),
+            Some(x) => panic!("Position::new_from_fen: Unexpected character: {}", x),
+            None => panic!("Position::new_from_fen: FEN ended early, no castling rights given"),
+        }
+
+        for x in iter.by_ref() {
+            if x == ' ' {
+                break;
+            }
+
+            if x == '-' {
+                if cfg!(feature = "strict_checks") && pos.state().castle_rights != 0 {
+                    panic!("Position::new_from_fen: Castle character '-' given with other rights given.");
+                }
+
+                match iter.next() {
+                    Some(' ') => (),
+                    None | Some(_) => {
+                        panic!("Position::new_from_fen: FEN ended early, no En Passant data given.")
+                    }
+                }
+                break;
+            }
+
+            let cf = match x {
+                'K' => CastleFlag::WhiteShort,
+                'Q' => CastleFlag::WhiteLong,
+                'k' => CastleFlag::BlackShort,
+                'q' => CastleFlag::BlackLong,
+                c => panic!(
+                    "Position::new_from_fen: Unknown castle character given: {}",
+                    c
+                ),
+            };
+
+            if cfg!(feature = "strict_checks") && pos.has_castle(cf) {
+                panic!("Position::new_from_fen: Castle flag given twice: {}", x);
+            }
+
+            pos.add_castle_right(cf);
+        }
+
+        let one = iter.next();
+        let two = iter.next();
+
+        match one {
+            Some('-') => (),
+            None => return pos,
+            Some(f_char) => {
+                let r_char = two.expect("Position::new_from_fen: en passant rank not given.");
+                let f = File::try_from(f_char as u8).unwrap();
+                let r = Rank::try_from(r_char as u8).unwrap();
+                let s = Square::new(f, r);
+
+                // SAFETY: Trust me bro.
+                unsafe {
+                    pos.state_mut().en_passant = Some(s);
+                }
+            }
+        }
+
+        // TODO parse move counts. not a prio.
+
+        pos
+    }
+
     // Misc data pulls
     pub const fn to_move(&self) -> Color {
         self.to_move
@@ -97,6 +297,16 @@ impl Position {
     pub const fn piece_on(&self, s: Square) -> Option<Piece> {
         self.board[s as usize]
     }
+    pub const fn empty(&self, s: Square) -> bool {
+        self.board[s as usize].is_none()
+    }
+
+    pub fn king(&self, color: Color) -> Square {
+        assert_ne!(self.spec(PieceType::King, color), Bitboard::new(0));
+        // SAFETY: King always has to exist.
+        unsafe { self.spec(PieceType::King, color).lsb_unchecked() }
+    }
+
     // Castling
     pub fn has_castle(&self, cf: CastleFlag) -> bool {
         let cf_u8: u8 = cf.into();
@@ -106,31 +316,38 @@ impl Position {
         if cfg!(feature = "strict_checks") && !self.has_castle(cf) {
             return false;
         }
-        todo!()
+
+        // XXX Should this check more than just plegal?
+        let inb = Bitboard::interval(cf.from_square(), cf.rook_square());
+        if bool::from(inb & self.all()) {
+            return false;
+        }
+
+        true
     }
 
-    // State access. First two are not public for "obvious" reasons. Namely, we don't want a reference that can become invalidated.
-    const fn state(&self) -> &State {
-        // SAFETY: This is always non-null, and only accessed from here. Also is created from correct pointer, and so is not misaligned.
-        unsafe { self.state.as_ref() }
+    // State access, and mutations
+    pub fn state(&self) -> &State {
+        self.state.as_ref()
     }
-    const unsafe fn state_mut(&mut self) -> &mut State {
-        // SAFETY: Up to the caller
-        unsafe { self.state.as_mut() }
+    fn state_mut(&mut self) -> &mut State {
+        self.state.as_mut()
     }
-    pub const fn ep(&self) -> Option<Square> {
+
+    // Non-setting access
+    pub fn ep(&self) -> Option<Square> {
         self.state().en_passant
     }
-    pub const fn checkers(&self) -> Bitboard {
+    pub fn checkers(&self) -> Bitboard {
         self.state().checkers
     }
-    pub const fn pinners(&self, color: Color) -> Bitboard {
+    pub fn pinners(&self, color: Color) -> Bitboard {
         self.state().pinners[color as usize]
     }
-    pub const fn blockers(&self, color: Color) -> Bitboard {
+    pub fn blockers(&self, color: Color) -> Bitboard {
         self.state().blockers[color as usize]
     }
-    pub const fn rule50(&self) -> i32 {
+    pub fn rule50(&self) -> i32 {
         self.state().halfmoves
     }
 
@@ -142,48 +359,10 @@ impl Position {
         todo!();
     }
     pub fn is_pseudo_legal(&self, mov: Move) -> bool {
-        let src = mov.from();
-        let tar = mov.to();
-        let kind = mov.kind();
-
-        if src == tar {
-            return false;
-        }
-
-        let us = self.to_move();
-        let them = !us;
-        let our_pieces = self.color(us);
-        let their_pieces = self.color(!us);
-
-        let Some(mover) = self.piece_on(src) else {
-            return false; // No piece!
-        };
-
-        if mover.color() != us {
-            return false;
-        }
-
-        let opt_taken = self.piece_on(tar);
-
-        if opt_taken.map(|p| p.color()) == Some(us) {
-            return false; // Cannot take own piece.
-        }
-
-        if kind == MoveKind::Castle {
-            let dist = src.distance(tar);
-            if mover.kind() != PieceType::King {
-                return false;
-            }
-            if dist != 2 {
-                return false; // Castling is always a 2-square king move
-            }
-            let between = Bitboard::interval(src, tar) | Bitboard::from(tar);
-        }
-
-        true
+        todo!()
     }
     pub fn make_move(&mut self, mov: Move) {
-        todo!()
+        let us = self.to_move();
     }
     pub fn unmake_move(&mut self, mov: Move) {
         todo!()
@@ -195,4 +374,72 @@ impl Position {
     }
 
     // Rest private helpers
+    fn add_piece(&mut self, piece: Piece, square: Square) {
+        if self.board[square as usize].is_some() {
+            panic!("Position::add_piece: Square already occupied");
+        }
+
+        self.board[square as usize] = Some(piece);
+        let bb = Bitboard::from(square);
+
+        self.colors[piece.color() as usize] |= bb;
+        self.pieces[piece.kind() as usize] |= bb;
+    }
+    fn add_castle_right(&mut self, cf: CastleFlag) {
+        // Safety:: this is only used in Position::new_from_fen - state ref can't be invalidated and is released immediately.
+        unsafe {
+            self.state_mut().castle_rights |= u8::from(cf);
+        }
+    }
+}
+
+impl State {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            blockers: [Bitboard::new(0); 2],
+            pinners: [Bitboard::new(0); 2],
+            checkers: Bitboard::new(0),
+            captured: None,
+            castle_rights: 0,
+            en_passant: None,
+            halfmoves: 0,
+            previous: None,
+        })
+    }
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut pos_str = String::new();
+
+        for fake_rank_index in 0..8 {
+            pos_str += "+---+---+---+---+---+---+---+---+\n";
+            pos_str += "| ";
+            let rank_index = 7 - fake_rank_index;
+            for file_index in 0..8 {
+                // SAFETY: In proper range as declared.
+                let f = unsafe { File::try_from(file_index).unwrap_unchecked() };
+                let r = unsafe { Rank::try_from(rank_index).unwrap_unchecked() };
+                let s = Square::new(f, r);
+                pos_str.push(match self.piece_on(s) {
+                    Some(p) => char::from(p),
+                    None => ' ',
+                });
+                if file_index != 7 {
+                    pos_str += " | ";
+                }
+            }
+            pos_str += " |\n";
+        }
+        pos_str += "+---+---+---+---+---+---+---+---+\nEP: ";
+
+        write!(
+            f,
+            "{pos_str}{}",
+            match self.ep() {
+                Some(s) => s.to_string(),
+                None => "n/a".to_owned(),
+            }
+        )
+    }
 }

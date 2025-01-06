@@ -1,3 +1,4 @@
+use std::hint::assert_unchecked;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Neg, Not};
 use std::ops::{Shl, ShlAssign, Shr, ShrAssign};
 
@@ -18,6 +19,10 @@ impl Bitboard {
         let index = self.0.trailing_zeros() as u8;
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
         unsafe { std::mem::transmute(index) }
+    }
+    pub unsafe fn lsb_unchecked(self) -> Square {
+        assert_unchecked(self.0 != 0);
+        std::mem::transmute(self.0.trailing_zeros() as u8)
     }
     pub fn without_lsb(self) -> Self {
         Self::new(self.0 & self.0.wrapping_sub(1))

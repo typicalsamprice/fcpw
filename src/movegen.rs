@@ -1,8 +1,8 @@
-use std::path::PrefixComponent;
-
 use crate::bitboard::Bitboard;
+use crate::color::Color::{self, *};
 use crate::piece::PieceType;
 use crate::position::Position;
+use crate::square::Direction::*;
 use crate::square::{Rank, Square};
 
 // TODO: Maybe use NonZeroU16 to make use of NPO when using Option<Move>
@@ -80,7 +80,9 @@ impl Move {
             kind = MoveKind::Castle;
         } else if Some(to_sq) == pos.ep() && mover.kind() == PieceType::Pawn {
             kind = MoveKind::EnPassant;
-        } else if to_sq.rank() == mover.color().promo_rank() && mover.kind() == PieceType::Pawn {
+        } else if mover.kind() == PieceType::Pawn
+            && to_sq.rank() == mover.color().relative_rank(Rank::Eight)
+        {
             kind = MoveKind::Promotion(promo_type?);
         }
 
@@ -114,7 +116,18 @@ impl Move {
     }
 }
 
+impl std::fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prom_s = self
+            .get_promo()
+            .map_or_else(|| String::new(), |pt| format!("{pt}"));
+        write!(f, "{}{}{}", self.from(), self.to(), prom_s)
+    }
+}
+
 pub mod generate {
+    use crate::{position::CastleFlag, precompute};
+
     use super::*;
 
     pub fn pseudo_legal(pos: &Position) -> Vec<Move> {
@@ -129,10 +142,144 @@ pub mod generate {
 
     fn pawn_moves(pos: &Position, list: &mut Vec<Move>) {
         let us = pos.to_move();
+
+        let enemies = pos.color(!us) | Bitboard::from(pos.ep());
+        let empty = !pos.all();
+
         let pawns = pos.spec(PieceType::Pawn, us);
-        let potential_promotions = pawns & Bitboard::from(Rank::Seven);
+        let potential_promotions = pawns & Bitboard::from(us.relative_rank(Rank::Seven));
         let non_promotions = pawns ^ potential_promotions;
 
-        for p in potential_promotions {}
+        let third_rank = Bitboard::from(us.relative_rank(Rank::Three));
+        let forward = if us == White { North } else { South };
+
+        // All promotions
+        for p in potential_promotions {
+            unsafe {
+                let up = p.shift_unchecked(forward);
+                if pos.empty(up) {
+                    add_prom(p, up, list);
+                }
+
+                let proms = Bitboard::from([up.shift(East), up.shift(West)]) & enemies;
+                for dest in proms {
+                    add_prom(p, dest, list);
+                }
+            }
+        }
+
+        // Pushes
+        let one_ups = (non_promotions << forward) & empty;
+        let two_ups = ((one_ups & third_rank) << forward) & empty;
+
+        for p in one_ups {
+            list.push(Move::new(unsafe { p.shift_unchecked(!forward) }, p));
+        }
+        for p in two_ups {
+            list.push(Move::new(
+                unsafe { p.shift_unchecked(!forward).shift_unchecked(!forward) },
+                p,
+            ));
+        }
+
+        // Captures
+        for p in non_promotions {
+            let up = unsafe { p.shift_unchecked(forward) };
+            let w = Bitboard::from(up.shift(West));
+            let e = Bitboard::from(up.shift(East));
+
+            if bool::from(w & enemies) {
+                let t = if up.shift(West) == pos.ep() {
+                    MoveKind::EnPassant
+                } else {
+                    MoveKind::Normal
+                };
+                list.push(Move::new_with_kind(p, unsafe { w.lsb_unchecked() }, t));
+            }
+            if bool::from(e & enemies) {
+                let t = if up.shift(East) == pos.ep() {
+                    MoveKind::EnPassant
+                } else {
+                    MoveKind::Normal
+                };
+                list.push(Move::new_with_kind(p, unsafe { e.lsb_unchecked() }, t));
+            }
+        }
+    }
+
+    fn add_prom(from: Square, to: Square, list: &mut Vec<Move>) {
+        for kind in PieceType::promotable() {
+            list.push(Move::new_with_kind(from, to, MoveKind::Promotion(kind)));
+        }
+    }
+
+    fn knight_moves(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let knights = pos.spec(PieceType::Knight, us);
+
+        for k in knights {
+            let movs = precompute::knight_attacks(k) & !pos.color(us);
+
+            for m in movs {
+                list.push(Move::new(k, m));
+            }
+        }
+    }
+    fn king_moves(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let king = pos.king(us);
+
+        let movs = precompute::king_attacks(king) & !pos.color(us);
+
+        for m in movs {
+            list.push(Move::new(king, m));
+        }
+
+        for cf in CastleFlag::variants_for(us) {
+            if pos.has_castle(cf) && pos.can_castle(cf) {
+                list.push(Move::new_with_kind(
+                    cf.from_square(),
+                    cf.to_square(),
+                    MoveKind::Castle,
+                ));
+            }
+        }
+    }
+
+    fn bishop_moves(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let bishops = pos.spec(PieceType::Bishop, us);
+        let targets = !pos.color(us); // XXX Can change if not wanting captures
+
+        for b in bishops {
+            let atts = precompute::bishop_attacks(b, targets);
+            for t in atts {
+                list.push(Move::new(b, t));
+            }
+        }
+    }
+    fn rook_moves(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let rooks = pos.spec(PieceType::Rook, us);
+        let targets = !pos.color(us); // XXX Can change if not wanting captures
+
+        for r in rooks {
+            let atts = precompute::rook_attacks(r, targets);
+            for t in atts {
+                list.push(Move::new(r, t));
+            }
+        }
+    }
+    fn queen_moves(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let queens = pos.spec(PieceType::Queen, us);
+        let targets = !pos.color(us); // XXX Can change if not wanting captures
+
+        for q in queens {
+            let atts = precompute::queen_attacks(q, targets);
+            for t in atts {
+                list.push(Move::new(q, t));
+            }
+        }
     }
 }

@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 // TODO Precompute elements
 // - Piece moves, including sliding pieces (start with rays for simplicity, transition to magic bitboards if required)
 use crate::bitboard::Bitboard;
-use crate::color::Color;
+use crate::color::Color::{self, *};
 use crate::square::{Direction, Square};
 
 static IS_INIT: OnceLock<bool> = OnceLock::new();
@@ -23,6 +23,7 @@ pub fn initialize() {
         return;
     }
 
+    // Setup for ray/line caching
     for square in BB_FULL {
         for d in Direction::all() {
             let mut s = Bitboard::from(square);
@@ -52,6 +53,39 @@ pub fn initialize() {
                     | Bitboard::from(square);
                 BB_LINES[square as usize][other as usize] = line;
                 BB_LINES[other as usize][square as usize] = line;
+            }
+        }
+    }
+
+    // Setup for king + pawn moves
+    for square in BB_FULL {
+        // Pawns first
+        let s = Bitboard::from(square);
+        let sides = (s << Direction::West) | (s << Direction::East);
+
+        unsafe {
+            ATT_PAWNS[square as usize][White as usize] = sides << Direction::North;
+            ATT_PAWNS[square as usize][Black as usize] = sides << Direction::South;
+        }
+
+        // Then use those to generate kings
+        unsafe {
+            ATT_KING[square as usize] = ATT_PAWNS[square as usize][White as usize]
+                | ATT_PAWNS[square as usize][Black as usize]
+                | sides
+                | (s << Direction::North)
+                | (s << Direction::South);
+        }
+
+        // Now, knight moves
+        for dir in [Direction::North, Direction::South] {
+            let dde = s << dir << dir << Direction::East;
+            let ddw = s << dir << dir << Direction::West;
+            let dee = (s << dir << Direction::East) << Direction::East;
+            let dww = (s << dir << Direction::West) << Direction::West;
+
+            unsafe {
+                ATT_KNIGHT[square as usize] |= dde | ddw | dee | dww;
             }
         }
     }
