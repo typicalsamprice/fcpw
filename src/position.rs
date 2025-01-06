@@ -3,6 +3,7 @@ use crate::color::Color;
 use crate::movegen::{Move, MoveKind};
 use crate::piece::{Piece, PieceType};
 use crate::square::{File, Rank, Square};
+use crate::{strict_cond, strict_eq, strict_not};
 
 #[derive(Debug)]
 pub struct Position {
@@ -148,13 +149,17 @@ impl Position {
             if x == ' ' {
                 break;
             } else if x == '/' {
-                if cfg!(feature = "strict_checks") && file != File::H {
-                    panic!("Rank not filled in Position::new_from_fen");
-                }
+                strict_eq!(
+                    file,
+                    File::H,
+                    panic!("Rank not filled in Position::new_from_fen")
+                );
 
-                if rank == Rank::One {
-                    panic!("Too many ranks in FEN given to Position::new_from_fen");
-                }
+                assert_ne!(
+                    rank,
+                    Rank::One,
+                    "Too many ranks in FEN given to Position::new_from_fen"
+                );
 
                 file = File::A;
                 // SAFETY: We know rank != Rank::One and so (rank as u8) > 0.
@@ -167,9 +172,10 @@ impl Position {
                 let file_index = file as u8 + shiftness;
 
                 if file_index >= 8 {
-                    if cfg!(feature = "strict_checks") && file_index > 8 {
-                        panic!("File overflow in Position::new_from_fen");
-                    }
+                    strict_cond!(
+                        file_index <= 8,
+                        panic!("File overflow in Position::new_from_fen")
+                    );
 
                     file = File::H;
                     continue;
@@ -183,6 +189,7 @@ impl Position {
             let Ok(p) = Piece::try_from(x) else {
                 panic!("Unknown piece passed in FEN: {}", x);
             };
+
             let s = Square::new(file, rank);
             pos.add_piece(p, s);
 
@@ -211,9 +218,7 @@ impl Position {
             }
 
             if x == '-' {
-                if cfg!(feature = "strict_checks") && pos.state().castle_rights != 0 {
-                    panic!("Position::new_from_fen: Castle character '-' given with other rights given.");
-                }
+                strict_eq!(pos.state().castle_rights, 0, panic!("Position::new_from_fen: Castle character '-' given with other rights given."));
 
                 match iter.next() {
                     Some(' ') => (),
@@ -235,9 +240,10 @@ impl Position {
                 ),
             };
 
-            if cfg!(feature = "strict_checks") && pos.has_castle(cf) {
-                panic!("Position::new_from_fen: Castle flag given twice: {}", x);
-            }
+            strict_not!(
+                pos.has_castle(cf),
+                panic!("Position::new_from_fen: Castle flag given twice: {}", x)
+            );
 
             pos.add_castle_right(cf);
         }
@@ -313,9 +319,7 @@ impl Position {
         self.state().castle_rights & cf_u8 == cf_u8
     }
     pub fn can_castle(&self, cf: CastleFlag) -> bool {
-        if cfg!(feature = "strict_checks") && !self.has_castle(cf) {
-            return false;
-        }
+        strict_not!(self.has_castle(cf), return false);
 
         // XXX Should this check more than just plegal?
         let inb = Bitboard::interval(cf.from_square(), cf.rook_square());
@@ -353,9 +357,8 @@ impl Position {
 
     // Move related
     pub fn is_legal(&self, mov: Move) -> bool {
-        if cfg!(feature = "strict_checks") && !self.is_pseudo_legal(mov) {
-            return false;
-        }
+        strict_not!(self.is_pseudo_legal(mov), return false);
+
         todo!();
     }
     pub fn is_pseudo_legal(&self, mov: Move) -> bool {

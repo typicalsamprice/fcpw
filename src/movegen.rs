@@ -4,6 +4,7 @@ use crate::piece::PieceType;
 use crate::position::Position;
 use crate::square::Direction::*;
 use crate::square::{Rank, Square};
+use crate::strict_ne;
 
 // TODO: Maybe use NonZeroU16 to make use of NPO when using Option<Move>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,9 +24,7 @@ pub enum MoveKind {
 
 impl Move {
     pub fn new(from: Square, to: Square) -> Self {
-        if cfg!(feature = "strict_checks") {
-            assert_ne!(from, to);
-        }
+        strict_ne!(from, to);
         Self {
             from,
             to,
