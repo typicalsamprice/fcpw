@@ -43,7 +43,7 @@ pub enum Rank {
 impl Square {
     #[inline]
     pub const fn new(file: File, rank: Rank) -> Self {
-        let sq_idx = ((file as u8) << 3) + (rank as u8);
+        let sq_idx = ((rank as u8) << 3) + (file as u8);
         // SAFETY: Bounds of file/rank enums make this bounded propertly in [0, 63].
         unsafe { transmute(sq_idx) }
     }
@@ -51,12 +51,12 @@ impl Square {
     #[inline]
     pub const fn file(self) -> File {
         // SAFETY: Limits of square enum makes this bounded properly.
-        unsafe { transmute(self as u8 >> 3) }
+        unsafe { transmute(self as u8 & 7) }
     }
     #[inline]
     pub const fn rank(self) -> Rank {
         // SAFETY: Limits of square enum makes this bounded properly.
-        unsafe { transmute(self as u8 & 7) }
+        unsafe { transmute(self as u8 >> 3) }
     }
 
     #[inline]
