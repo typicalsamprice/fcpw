@@ -69,8 +69,9 @@ impl std::fmt::Display for Bitboard {
         for fake_rank_index in 0..8 {
             let rank_index = 7 - fake_rank_index;
             for file_index in 0..8 {
-                let sq_index: u8 = (rank_index << 3) + file_index;
-                let s: Square = unsafe { std::mem::transmute(sq_index) };
+                let file = unsafe { File::try_from(file_index).unwrap_unchecked() };
+                let rank = unsafe { Rank::try_from(rank_index).unwrap_unchecked() };
+                let s = Square::new(file, rank);
                 if self.has(s) {
                     bb_str += "X";
                 } else {

@@ -3,7 +3,7 @@ use crate::color::Color;
 use crate::movegen::{Move, MoveKind};
 use crate::piece::{Piece, PieceType};
 use crate::square::{File, Rank, Square};
-use crate::{strict_cond, strict_eq, strict_not};
+use crate::{precompute, strict_cond, strict_eq, strict_ne, strict_not};
 
 #[derive(Debug)]
 pub struct Position {
@@ -14,7 +14,7 @@ pub struct Position {
     pieces: [Bitboard; 6],
     board: [Option<Piece>; 64],
 
-    state: Box<State>,
+    state: Option<Box<State>>,
 }
 
 #[derive(Debug)]
@@ -68,7 +68,7 @@ impl CastleFlag {
             Self::BlackLong => Square::C8,
         }
     }
-    pub const fn rook_square(self) -> Square {
+    pub const fn rook_from_square(self) -> Square {
         match self {
             Self::All | Self::WhiteAll | Self::BlackAll => {
                 panic!("CastleFlag::to_square called on ambiguous variant.")
@@ -77,6 +77,17 @@ impl CastleFlag {
             Self::WhiteLong => Square::A1,
             Self::BlackShort => Square::H8,
             Self::BlackLong => Square::A8,
+        }
+    }
+    pub const fn rook_to_square(self) -> Square {
+        match self {
+            Self::All | Self::WhiteAll | Self::BlackAll => {
+                panic!("CastleFlag::to_square called on ambiguous variant.")
+            }
+            Self::WhiteShort => Square::F1,
+            Self::WhiteLong => Square::D1,
+            Self::BlackShort => Square::F8,
+            Self::BlackLong => Square::D8,
         }
     }
 
@@ -114,13 +125,6 @@ impl From<CastleFlag> for u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub enum Evaluation {
-    Stalemate,
-    Score(f32),
-    MateIn(i32), // Positive for white, negative for black
-}
-
 impl Position {
     pub const STARTING_FEN: &'static str =
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -133,7 +137,7 @@ impl Position {
             pieces: [Bitboard::new(0); 6],
             to_move: Color::White,
             // SAFETY: We just created this.
-            state: State::new(),
+            state: Some(State::new()),
         }
     }
 
@@ -269,6 +273,7 @@ impl Position {
 
         // TODO parse move counts. not a prio.
 
+        pos.update_state();
         pos
     }
 
@@ -322,7 +327,7 @@ impl Position {
         strict_not!(self.has_castle(cf), return false);
 
         // XXX Should this check more than just plegal?
-        let inb = Bitboard::interval(cf.from_square(), cf.rook_square());
+        let inb = Bitboard::interval(cf.from_square(), cf.rook_from_square());
         if bool::from(inb & self.all()) {
             return false;
         }
@@ -332,10 +337,10 @@ impl Position {
 
     // State access, and mutations
     pub fn state(&self) -> &State {
-        self.state.as_ref()
+        self.state.as_ref().unwrap()
     }
     fn state_mut(&mut self) -> &mut State {
-        self.state.as_mut()
+        self.state.as_mut().unwrap()
     }
 
     // Non-setting access
@@ -365,14 +370,97 @@ impl Position {
         todo!()
     }
     pub fn make_move(&mut self, mov: Move) {
+        strict_cond!(self.is_legal(mov));
+
+        let mut new_state = self.state.clone().unwrap();
+        let old = self.state.replace(new_state);
+        self.state_mut().previous = old;
+
+        self.state_mut().halfmoves += 1;
+
         let us = self.to_move();
+        let them = !us;
+
+        let from = mov.from();
+        let to = mov.to();
+        let flag = mov.kind();
+
+        strict_ne!(from, to);
+
+        let mover = self
+            .piece_on(from)
+            .expect("No piece found on the `from` square");
+
+        strict_eq!(mover.color(), us);
+
+        // This is the square we want to REMOVE a piece from after this.
+        let mut capture_square = to;
+
+        if mover.kind() == PieceType::Pawn {
+            self.state_mut().halfmoves = 0;
+
+            if from.distance(to) == 2 {
+                strict_eq!(from.file(), to.file());
+                self.state_mut().en_passant =
+                    Some(Square::new(from.file(), us.relative_rank(Rank::Three)));
+            } else if flag == MoveKind::EnPassant {
+                strict_eq!(
+                    self.state()
+                        .previous
+                        .as_ref()
+                        .map(|st| st.en_passant)
+                        .flatten(),
+                    Some(to)
+                );
+
+                capture_square = Square::new(from.file(), us.relative_rank(Rank::Five));
+            } else if let MoveKind::Promotion(promo_type) = flag {
+                strict_ne!(promo_type, PieceType::Pawn);
+                strict_ne!(promo_type, PieceType::King);
+                self.remove_piece(from);
+                self.add_piece(Piece::new(promo_type, us), from);
+            }
+        }
+
+        if let Some(piece) = self.remove_piece(capture_square) {
+            self.state_mut().halfmoves = 0;
+            self.state_mut().captured = Some(piece);
+        }
+
+        self.move_piece(from, to);
+
+        if flag == MoveKind::Castle {
+            // We have to find our castle-flag first.
+            let castle_flag = if CastleFlag::short_for(us).to_square() == to {
+                CastleFlag::short_for(us)
+            } else {
+                CastleFlag::long_for(us)
+            };
+
+            strict_eq!(castle_flag.to_square(), to);
+            strict_eq!(castle_flag.from_square(), from);
+
+            self.move_piece(castle_flag.rook_from_square(), castle_flag.rook_to_square());
+        }
+
+        // TODO what is most efficient way? no checks?
+        if mover.kind() == PieceType::King {
+            for cf in CastleFlag::variants_for(us) {
+                if self.has_castle(cf) {
+                    self.remove_castle_right(cf);
+                }
+            }
+        } else if mover.kind() == PieceType::Rook {
+            for cf in CastleFlag::variants_for(us) {
+                if cf.rook_from_square() == from && self.has_castle(cf) {
+                    self.remove_castle_right(cf);
+                }
+            }
+        }
+
+        self.update_state();
     }
     pub fn unmake_move(&mut self, mov: Move) {
-        todo!()
-    }
-
-    // Evalutation
-    pub fn evaluate(&self) -> Evaluation {
         todo!()
     }
 
@@ -388,11 +476,96 @@ impl Position {
         self.colors[piece.color() as usize] |= bb;
         self.pieces[piece.kind() as usize] |= bb;
     }
+    #[must_use]
+    fn remove_piece(&mut self, square: Square) -> Option<Piece> {
+        let pc = self.board[square as usize].take()?;
+
+        let bb = Bitboard::from(square);
+
+        self.colors[pc.color() as usize] ^= bb;
+        self.pieces[pc.kind() as usize] ^= bb;
+
+        strict_cond!(self.piece_on(square).is_none());
+
+        Some(pc)
+    }
+    fn move_piece(&mut self, from: Square, to: Square) {
+        strict_ne!(from, to);
+        strict_not!(self.piece_on(to).is_some());
+        strict_cond!(self.piece_on(from).is_some());
+
+        let x = Bitboard::from([from, to]);
+        let pc = self.board[from as usize].take().unwrap();
+        self.board[to as usize] = Some(pc);
+        self.colors[pc.color() as usize] ^= x;
+        self.pieces[pc.kind() as usize] ^= x;
+    }
+
     fn add_castle_right(&mut self, cf: CastleFlag) {
         // Safety:: this is only used in Position::new_from_fen - state ref can't be invalidated and is released immediately.
         unsafe {
             self.state_mut().castle_rights |= u8::from(cf);
         }
+    }
+    fn remove_castle_right(&mut self, cf: CastleFlag) {
+        // Safety:: this is only used in Position::new_from_fen - state ref can't be invalidated and is released immediately.
+        unsafe {
+            self.state_mut().castle_rights &= !u8::from(cf);
+        }
+    }
+
+    fn attacks_to(&self, square: Square, by: Color) -> Bitboard {
+        self.attacks_to_with_occ(square, by, self.all())
+    }
+    fn attacks_to_with_occ(&self, square: Square, by: Color, occupancy: Bitboard) -> Bitboard {
+        let pawns = precompute::pawn_attacks(square, !by) & self.pieces(PieceType::Pawn);
+
+        let knights = precompute::knight_attacks(square) & self.pieces(PieceType::Knight);
+
+        // Both sliders calculate Queen moves in tandem
+        let bishops = precompute::bishop_attacks(square, occupancy)
+            & self.pieces_list(&[PieceType::Bishop, PieceType::Queen]);
+        let rooks = precompute::rook_attacks(square, occupancy)
+            & self.pieces_list(&[PieceType::Rook, PieceType::Queen]);
+
+        let kings = precompute::king_attacks(square) & self.pieces(PieceType::King);
+
+        let moves = pawns | knights | bishops | rooks | kings;
+
+        moves & self.color(by)
+    }
+
+    fn update_state(&mut self) {
+        let mov_color = self.to_move();
+        let king = self.king(mov_color);
+
+        self.state_mut().checkers = self.attacks_to(king, !mov_color);
+
+        self.update_checkers_blockers(Color::White);
+        self.update_checkers_blockers(Color::Black);
+    }
+    fn update_checkers_blockers(&mut self, color: Color) {
+        let king = self.king(color);
+        // TODO Is it SUBSTANTIALLY better to just have slider attacks calculated separately to avoid overhead of pawn/king/knight generations?
+        let potential_pinners = self.attacks_to_with_occ(king, !color, 0.into())
+            & self.pieces_list(&[PieceType::Bishop, PieceType::Rook, PieceType::Queen]);
+
+        for pp in potential_pinners {
+            let line_to_king = precompute::line(king, pp) & self.all();
+            if line_to_king.more_than_one() || !bool::from(line_to_king) {
+                // Not a pinner!!
+                continue;
+            }
+
+            self.state_mut().blockers[color as usize] |= line_to_king;
+            self.state_mut().pinners[(!color) as usize] |= Bitboard::from(pp);
+        }
+    }
+}
+
+impl Default for Position {
+    fn default() -> Self {
+        Self::new_from_fen(Self::STARTING_FEN)
     }
 }
 
@@ -408,6 +581,23 @@ impl State {
             halfmoves: 0,
             previous: None,
         })
+    }
+}
+
+impl Clone for State {
+    fn clone(&self) -> Self {
+        Self {
+            captured: None,
+            en_passant: None,
+            pinners: [Bitboard::new(0); 2],
+            blockers: [Bitboard::new(0); 2],
+            checkers: Bitboard::new(0),
+
+            halfmoves: self.halfmoves,
+            castle_rights: self.castle_rights,
+
+            previous: None,
+        }
     }
 }
 
