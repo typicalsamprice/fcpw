@@ -133,8 +133,39 @@ pub mod generate {
         let mut moves = Vec::with_capacity(128);
 
         pawn_moves(pos, &mut moves);
+        knight_moves(pos, &mut moves);
+        bishop_moves(pos, &mut moves);
+        rook_moves(pos, &mut moves);
+        queen_moves(pos, &mut moves);
+        king_moves(pos, &mut moves);
 
         moves
+    }
+
+    pub fn legal(pos: &Position) -> Vec<Move> {
+        let mut moves = pseudo_legal(pos);
+        prune_to_legal(pos, &mut moves);
+        moves
+    }
+
+    fn prune_to_legal(pos: &Position, list: &mut Vec<Move>) {
+        let mut i = 0;
+        let us = pos.to_move();
+        let king = pos.king(us);
+        // TODO list.filter(...)
+        while i < list.len() {
+            let m = list[i];
+            if (m.from() == king
+                || pos.blockers(us).has(m.from())
+                || m.kind() == MoveKind::EnPassant
+                || pos.in_check())
+                && !pos.is_legal(m)
+            {
+                list.remove(i);
+                continue;
+            }
+            i += 1;
+        }
     }
 
     // Generation helpers.
@@ -251,7 +282,7 @@ pub mod generate {
         let targets = !pos.color(us); // XXX Can change if not wanting captures
 
         for b in bishops {
-            let atts = precompute::bishop_attacks(b, targets);
+            let atts = precompute::bishop_attacks(b, pos.all()) & targets;
             for t in atts {
                 list.push(Move::new(b, t));
             }
@@ -263,7 +294,7 @@ pub mod generate {
         let targets = !pos.color(us); // XXX Can change if not wanting captures
 
         for r in rooks {
-            let atts = precompute::rook_attacks(r, targets);
+            let atts = precompute::rook_attacks(r, pos.all()) & targets;
             for t in atts {
                 list.push(Move::new(r, t));
             }
@@ -275,7 +306,7 @@ pub mod generate {
         let targets = !pos.color(us); // XXX Can change if not wanting captures
 
         for q in queens {
-            let atts = precompute::queen_attacks(q, targets);
+            let atts = precompute::queen_attacks(q, pos.all()) & targets;
             for t in atts {
                 list.push(Move::new(q, t));
             }

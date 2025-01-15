@@ -112,60 +112,31 @@ pub(crate) fn king_attacks(square: Square) -> Bitboard {
 }
 
 pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
-    let mut rv = 0.into();
-
-    for dir in Direction::diagonal() {
-        let att = ray(square, dir);
-        let possible = att & occupancy;
-        if bool::from(possible) {
-            let blocker = if dir.is_forward() {
-                possible.lsb()
-            } else {
-                possible.msb()
-            };
-            rv |= att ^ ray(blocker, dir);
-        } else {
-            rv |= att;
-        }
-    }
-
-    rv
+    sliders(square, occupancy, &Direction::diagonal())
 }
 pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
-    let mut rv = 0.into();
-
-    for dir in Direction::orthogonal() {
-        let att = ray(square, dir);
-        let possible = att & occupancy;
-        if bool::from(possible) {
-            let blocker = if dir.is_forward() {
-                possible.lsb()
-            } else {
-                possible.msb()
-            };
-            rv |= att ^ ray(blocker, dir);
-        } else {
-            rv |= att;
-        }
-    }
-
-    rv
+    sliders(square, occupancy, &Direction::orthogonal())
 }
 pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    sliders(square, occupancy, &Direction::all())
+}
+
+fn sliders(square: Square, occupancy: Bitboard, dirs: &[Direction]) -> Bitboard {
     let mut rv = 0.into();
 
-    for dir in Direction::all() {
-        let att = ray(square, dir);
-        let possible = att & occupancy;
-        if bool::from(possible) {
+    for &dir in dirs {
+        let attacks = ray(square, dir);
+        let blockers = attacks & occupancy;
+        if bool::from(blockers) {
             let blocker = if dir.is_forward() {
-                possible.lsb()
+                blockers.lsb()
             } else {
-                possible.msb()
+                blockers.msb()
             };
-            rv |= att ^ ray(blocker, dir);
+            let up_to_blocker = attacks ^ ray(blocker, dir);
+            rv |= up_to_blocker;
         } else {
-            rv |= att;
+            rv |= attacks;
         }
     }
 

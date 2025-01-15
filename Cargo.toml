@@ -5,5 +5,8 @@ edition = "2021"
 
 [dependencies]
 
+[dev-dependencies]
+ctor = "0.2.9"
+
 [features]
 strict_checks = []

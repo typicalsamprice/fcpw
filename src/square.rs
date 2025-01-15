@@ -2,6 +2,7 @@ use std::mem::transmute;
 use std::ops::Not;
 
 use crate::bitboard::Bitboard;
+use crate::color::Color;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[rustfmt::skip]
@@ -108,6 +109,13 @@ impl Square {
         let rank_diff = (self.rank() as u8).abs_diff(other.rank() as u8);
 
         file_diff == rank_diff
+    }
+
+    pub const fn relative(self, color: Color) -> Self {
+        match color {
+            Color::White => self,
+            Color::Black => Self::new(self.file(), Color::Black.relative_rank(self.rank())),
+        }
     }
 
     #[inline]
