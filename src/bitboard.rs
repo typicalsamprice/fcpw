@@ -32,7 +32,7 @@ impl Bitboard {
         assert_ne!(self.0, 0);
         let index = self.0.leading_zeros() as u8;
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
-        unsafe { std::mem::transmute(index) }
+        unsafe { std::mem::transmute(63 - index) }
     }
 
     #[inline]
