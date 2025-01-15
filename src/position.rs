@@ -617,6 +617,15 @@ impl Position {
 
         Ok(())
     }
+    pub fn make_uci_moves<'a>(&mut self, moves: &[&'a [u8]]) -> Result<(), &'a [u8]> {
+        for &uci_str in moves {
+            let Some(x) = Move::new_from_uci(uci_str, self) else {
+                return Err(uci_str);
+            };
+            self.make_move(x);
+        }
+        Ok(())
+    }
 
     // Rest private helpers
     fn add_piece(&mut self, piece: Piece, square: Square) {
