@@ -10,3 +10,5 @@ ctor = "0.2.9"
 
 [features]
 strict_checks = []
+magic = []
+pext = ["magic"]
