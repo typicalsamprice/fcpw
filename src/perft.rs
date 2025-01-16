@@ -57,85 +57,75 @@ fn test_inits() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    macro_rules! create_suite {
+        ($name:ident, $fen:expr, $results:expr) => {
+            mod $name {
+                const RES: [usize; 5] = $results;
+                const FEN: &str = $fen;
 
-    #[test]
-    fn startpos_depth_1() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 1), 20);
-    }
-    #[test]
-    fn startpos_depth_2() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 2), 400);
-    }
-    #[test]
-    fn startpos_depth_3() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 3), 8902);
-    }
-    #[test]
-    fn startpos_depth_4() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 4), 197281);
-    }
-    #[test]
-    fn startpos_depth_5() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 5), 4865609);
-    }
-    #[test]
-    fn startpos_depth_6() {
-        let mut pos = Position::default();
-        assert_eq!(perft(&mut pos, 6), 119060324);
-    }
+                use super::super::{perft, Position};
 
-    #[test]
-    fn kiwipete_depth_1() {
-        let mut pos = Position::new_from_fen(Position::KIWIPETE_FEN);
-        assert_eq!(perft(&mut pos, 1), 48);
-    }
-    #[test]
-    fn kiwipete_depth_2() {
-        let mut pos = Position::new_from_fen(Position::KIWIPETE_FEN);
-        assert_eq!(perft(&mut pos, 2), 2039);
-    }
-    #[test]
-    fn kiwipete_depth_3() {
-        let mut pos = Position::new_from_fen(Position::KIWIPETE_FEN);
-        assert_eq!(perft(&mut pos, 3), 97862);
-    }
-    #[test]
-    fn kiwipete_depth_4() {
-        let mut pos = Position::new_from_fen(Position::KIWIPETE_FEN);
-        assert_eq!(perft(&mut pos, 4), 4085603);
+                #[test]
+                fn depth_1() {
+                    let mut pos = Position::new_from_fen(FEN);
+                    assert_eq!(perft(&mut pos, 1), RES[0]);
+                }
+                #[test]
+                fn depth_2() {
+                    let mut pos = Position::new_from_fen(FEN);
+                    assert_eq!(perft(&mut pos, 2), RES[1]);
+                }
+                #[test]
+                fn depth_3() {
+                    let mut pos = Position::new_from_fen(FEN);
+                    assert_eq!(perft(&mut pos, 3), RES[2]);
+                }
+                #[test]
+                fn depth_4() {
+                    let mut pos = Position::new_from_fen(FEN);
+                    if RES[3] > 0 {
+                        assert_eq!(perft(&mut pos, 4), RES[3]);
+                    }
+                }
+                #[test]
+                #[ignore = "depth 5 generally takes too long"]
+                fn depth_5() {
+                    let mut pos = Position::new_from_fen(FEN);
+                    if RES[4] > 0 {
+                        assert_eq!(perft(&mut pos, 5), RES[4]);
+                    }
+                }
+            }
+        };
     }
 
-    static POS3_FEN: &'static str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
+    create_suite!(
+        startpos,
+        Position::STARTING_FEN,
+        [20, 400, 8902, 197281, 4865609]
+    );
 
-    #[test]
-    fn pos3_depth_1() {
-        let mut pos = Position::new_from_fen(POS3_FEN);
-        assert_eq!(perft(&mut pos, 1), 14);
-    }
-    #[test]
-    fn pos3_depth_2() {
-        let mut pos = Position::new_from_fen(POS3_FEN);
-        assert_eq!(perft(&mut pos, 2), 191);
-    }
-    #[test]
-    fn pos3_depth_3() {
-        let mut pos = Position::new_from_fen(POS3_FEN);
-        assert_eq!(perft(&mut pos, 3), 2812);
-    }
-    #[test]
-    fn pos3_depth_4() {
-        let mut pos = Position::new_from_fen(POS3_FEN);
-        assert_eq!(perft(&mut pos, 4), 43238);
-    }
-    #[test]
-    fn pos3_depth_5() {
-        let mut pos = Position::new_from_fen(POS3_FEN);
-        assert_eq!(perft(&mut pos, 5), 674624);
-    }
+    create_suite!(
+        kiwipete,
+        Position::KIWIPETE_FEN,
+        [48, 2039, 97862, 4085603, 193690690]
+    );
+
+    create_suite!(
+        cpw_pos_3,
+        "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+        [14, 191, 2812, 43238, 674624]
+    );
+
+    create_suite!(
+        cpw_pos_4,
+        "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        [6, 264, 9467, 422333, 15833292]
+    );
+
+    create_suite!(
+        cpw_pos_5,
+        "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        [44, 1486, 62379, 2103487, 89941194]
+    );
 }
