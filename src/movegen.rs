@@ -130,7 +130,7 @@ pub mod generate {
     use super::*;
 
     pub fn pseudo_legal(pos: &Position) -> Vec<Move> {
-        let mut moves = Vec::with_capacity(128);
+        let mut moves = Vec::with_capacity(256);
 
         pawn_moves(pos, &mut moves);
         knight_moves(pos, &mut moves);
