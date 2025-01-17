@@ -7,8 +7,9 @@ fn pext(a: u64, b: u64) -> u64 {
     unsafe { _pext_u64(a, b) }
 }
 
+use crate::bitboard::Bitboard;
 use crate::piece::PieceType::{self, Bishop, Rook};
-use crate::{Bitboard, Direction, File, Rank, Square};
+use crate::square::{Direction, File, Rank, Square};
 
 #[derive(Debug, Clone, Copy)]
 struct Magic {

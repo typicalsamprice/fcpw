@@ -13,3 +13,5 @@ ctor = "0.2.9"
 strict_checks = []
 magic = []
 pext = ["magic"]
+inline = []
+inline-aggressive = ["inline"]
