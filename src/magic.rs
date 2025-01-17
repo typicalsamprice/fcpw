@@ -1,5 +1,5 @@
 #[cfg(feature = "pext")]
-use std::arch::x86_64::_pext_u64;
+use bitintr::Pext;
 
 use crate::piece::PieceType::{self, Bishop, Rook};
 use crate::{Bitboard, Direction, File, Rank, Square};
@@ -55,7 +55,7 @@ impl Magic {
 
     #[cfg(feature = "pext")]
     fn index(&self, occupancy: Bitboard) -> isize {
-        unsafe { _pext_u64(u64::from(occupancy), u64::from(self.mask)) as isize }
+        u64::from(occupancy).pext(u64::from(self.mask)) as isize
     }
 
     #[cfg(not(feature = "pext"))]
@@ -148,7 +148,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
 
             #[cfg(feature = "pext")]
             unsafe {
-                let pext = _pext_u64(b.into_inner(), m.mask.into_inner());
+                let pext = b.into_inner().pext(m.mask.into_inner());
                 *(m.pointer.offset(pext as isize) as *mut _) = reference[size];
             }
 
