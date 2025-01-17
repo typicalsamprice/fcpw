@@ -131,6 +131,7 @@ impl Position {
     pub const KIWIPETE_FEN: &'static str =
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1";
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn new() -> Self {
         Self {
             board: [None; 64],
@@ -277,19 +278,24 @@ impl Position {
     }
 
     // Misc data pulls
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn to_move(&self) -> Color {
         self.to_move
     }
     // Bitboard pulling
+    #[cfg_attr(feature = "inline", inline)]
     pub fn all(&self) -> Bitboard {
         self.colors[0] | self.colors[1]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn color(&self, c: Color) -> Bitboard {
         self.colors[c as usize]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn pieces(&self, t: PieceType) -> Bitboard {
         self.pieces[t as usize]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn pieces_list(&self, ts: &[PieceType]) -> Bitboard {
         let mut res: Bitboard = 0.into();
         for t in ts {
@@ -297,20 +303,25 @@ impl Position {
         }
         res
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn spec(&self, t: PieceType, c: Color) -> Bitboard {
         self.pieces(t) & self.color(c)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn spec_list(&self, ts: &[PieceType], c: Color) -> Bitboard {
         self.pieces_list(ts) & self.color(c)
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn piece_on(&self, s: Square) -> Option<Piece> {
         self.board[s as usize]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn empty(&self, s: Square) -> bool {
         self.piece_on(s).is_none()
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn king(&self, color: Color) -> Square {
         debug_assert_ne!(self.spec(PieceType::King, color), Bitboard::new(0));
         // SAFETY: King always has to exist.
@@ -332,30 +343,38 @@ impl Position {
     }
 
     // State access, and mutations
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn state(&self) -> &State {
         self.state.as_ref().unwrap()
     }
+    #[cfg_attr(feature = "inline", inline)]
     const fn state_mut(&mut self) -> &mut State {
         self.state.as_mut().unwrap()
     }
 
     // Non-setting access
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn ep(&self) -> Option<Square> {
         self.state().en_passant
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn checkers(&self) -> Bitboard {
         self.state().checkers
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn pinners(&self, color: Color) -> Bitboard {
         self.state().pinners[color as usize]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn blockers(&self, color: Color) -> Bitboard {
         self.state().blockers[color as usize]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn rule50(&self) -> i32 {
         self.state().halfmoves
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn in_check(&self) -> bool {
         bool::from(self.checkers())
     }
@@ -617,6 +636,7 @@ impl Position {
     }
 
     // Rest private helpers
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn add_piece(&mut self, piece: Piece, square: Square) {
         if self.board[square as usize].is_some() {
             panic!("Position::add_piece: Square already occupied");
@@ -629,6 +649,7 @@ impl Position {
         self.pieces[piece.kind() as usize] |= bb;
     }
     #[must_use]
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn remove_piece(&mut self, square: Square) -> Option<Piece> {
         let pc = self.board[square as usize].take()?;
 
@@ -641,6 +662,7 @@ impl Position {
 
         Some(pc)
     }
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn move_piece(&mut self, from: Square, to: Square) {
         strict_ne!(from, to);
         strict_not!(self.piece_on(to).is_some());
@@ -716,12 +738,14 @@ impl Position {
 }
 
 impl Default for Position {
+    #[cfg_attr(feature = "inline", inline)]
     fn default() -> Self {
         Self::new_from_fen(Self::STARTING_FEN)
     }
 }
 
 impl State {
+    #[cfg_attr(feature = "inline", inline)]
     pub fn new() -> Box<Self> {
         Box::new(Self {
             blockers: [Bitboard::new(0); 2],
@@ -737,6 +761,7 @@ impl State {
 }
 
 impl Clone for State {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn clone(&self) -> Self {
         Self {
             captured: None,

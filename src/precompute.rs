@@ -99,32 +99,40 @@ pub fn initialize() {
 }
 
 // TODO Maybe store in a module not named `precompute`?
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn ray(square: Square, dir: Direction) -> Bitboard {
     unsafe { BB_RAYS[square as usize][dir as usize] }
 }
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn line(a: Square, b: Square) -> Bitboard {
     unsafe { BB_LINES[a as usize][b as usize] }
 }
 
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn pawn_attacks(square: Square, color: Color) -> Bitboard {
     unsafe { ATT_PAWNS[square as usize][color as usize] }
 }
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn knight_attacks(square: Square) -> Bitboard {
     unsafe { ATT_KNIGHT[square as usize] }
 }
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn king_attacks(square: Square) -> Bitboard {
     unsafe { ATT_KING[square as usize] }
 }
 
 #[cfg(not(feature = "magic"))]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::diagonal())
 }
 #[cfg(not(feature = "magic"))]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::orthogonal())
 }
 #[cfg(not(feature = "magic"))]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::all())
 }
@@ -153,14 +161,17 @@ fn sliders(square: Square, occupancy: Bitboard, dirs: &[Direction]) -> Bitboard 
 }
 
 #[cfg(feature = "magic")]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     magic::bishop_attacks(square, occupancy)
 }
 #[cfg(feature = "magic")]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     magic::rook_attacks(square, occupancy)
 }
 #[cfg(feature = "magic")]
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     magic::bishop_attacks(square, occupancy) | magic::rook_attacks(square, occupancy)
 }

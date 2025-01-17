@@ -28,10 +28,12 @@ pub enum MoveKind {
 }
 
 impl Move {
+    #[cfg_attr(feature = "inline", inline)]
     pub fn new(from: Square, to: Square) -> Self {
         assert_ne!(from, to);
         Self::new_with_kind(from, to, MoveKind::Normal)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn new_with_kind(from: Square, to: Square, kind: MoveKind) -> Self {
         let squares_u16 = (from as u16) | ((to as u16) << 6);
         let flag_u16 = match kind {
@@ -88,12 +90,15 @@ impl Move {
         Some(Self::new_with_kind(from_sq, to_sq, kind))
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from(self) -> Square {
         unsafe { std::mem::transmute((self.0.get() & 0x3f) as u8) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn to(self) -> Square {
         unsafe { std::mem::transmute(((self.0.get() >> 6) & 0x3f) as u8) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn kind(self) -> MoveKind {
         let bits = ((self.0.get() >> 12) & 0x7) as u8;
         match bits {
@@ -104,12 +109,14 @@ impl Move {
             _ => panic!("Illegal bit combination in 3 bits."),
         }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn is_promo(self) -> bool {
         match self.kind() {
             MoveKind::Promotion(_) => true,
             _ => false,
         }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn get_promo(self) -> Option<PieceType> {
         match self.kind() {
             MoveKind::Promotion(t) => Some(t),
@@ -125,6 +132,7 @@ pub struct MoveList {
 }
 
 impl MoveList {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn new() -> Self {
         Self {
             inner: [None; 256],
@@ -132,6 +140,7 @@ impl MoveList {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn get(&self, index: usize) -> Option<Move> {
         if index >= self.length {
             None
@@ -139,15 +148,18 @@ impl MoveList {
             self.inner[index]
         }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn len(&self) -> usize {
         self.length
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn push(&mut self, mov: Move) {
         assert!(self.length < 256);
         self.inner[self.length] = Some(mov);
         self.length += 1;
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn remove(&mut self, index: usize) {
         assert!(index < self.length);
         self.length -= 1;
@@ -160,6 +172,7 @@ impl MoveList {
 pub struct MoveListIter<'a>(std::slice::Iter<'a, Option<Move>>);
 
 impl<'a> MoveListIter<'a> {
+    #[cfg_attr(feature = "inline", inline)]
     fn new(lst: &'a MoveList) -> Self {
         Self(lst.inner[0..lst.length].iter())
     }
@@ -167,6 +180,7 @@ impl<'a> MoveListIter<'a> {
 
 impl<'a> Iterator for MoveListIter<'a> {
     type Item = Move;
+    #[cfg_attr(feature = "inline", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().copied().flatten()
     }
@@ -175,6 +189,7 @@ impl<'a> Iterator for MoveListIter<'a> {
 impl<'a> IntoIterator for &'a MoveList {
     type Item = Move;
     type IntoIter = MoveListIter<'a>;
+    #[cfg_attr(feature = "inline", inline)]
     fn into_iter(self) -> Self::IntoIter {
         MoveListIter::new(self)
     }
@@ -194,6 +209,7 @@ pub mod generate {
 
     use super::*;
 
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     pub fn pseudo_legal(pos: &Position) -> MoveList {
         let mut moves = MoveList::new();
 
@@ -208,12 +224,14 @@ pub mod generate {
         moves
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn legal(pos: &Position) -> MoveList {
         let mut moves = pseudo_legal(pos);
         prune_to_legal(pos, &mut moves);
         moves
     }
 
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn prune_to_legal(pos: &Position, list: &mut MoveList) {
         let mut i = 0;
         let us = pos.to_move();
@@ -236,7 +254,6 @@ pub mod generate {
     }
 
     // Generation helpers.
-
     fn pawn_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
 

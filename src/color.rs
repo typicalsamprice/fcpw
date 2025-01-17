@@ -9,6 +9,7 @@ pub enum Color {
 }
 
 impl Color {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn relative_rank(self, rank: Rank) -> Rank {
         match self {
             Color::White => rank,
@@ -16,6 +17,7 @@ impl Color {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn forward(self) -> Direction {
         match self {
             Color::White => Direction::North,
@@ -23,6 +25,7 @@ impl Color {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn not(self) -> Self {
         match self {
             Color::White => Color::Black,
@@ -33,6 +36,7 @@ impl Color {
 
 impl Not for Color {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn not(self) -> Self::Output {
         self.not()
     }

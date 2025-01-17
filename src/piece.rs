@@ -18,19 +18,23 @@ pub enum PieceType {
 pub struct Piece(NonZeroU8);
 
 impl Piece {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn new(kind: PieceType, color: Color) -> Self {
         let inner = (kind as u8 + 1) | ((color as u8) << 3);
         Self(unsafe { NonZeroU8::new_unchecked(inner) })
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn kind(&self) -> PieceType {
         unsafe { std::mem::transmute((self.0.get() & 7) - 1) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn color(&self) -> Color {
         unsafe { std::mem::transmute(self.0.get() >> 3) }
     }
 }
 
 impl PieceType {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn promotable() -> [Self; 4] {
         use PieceType::*;
         [Knight, Bishop, Rook, Queen]
@@ -38,6 +42,7 @@ impl PieceType {
 }
 
 impl From<PieceType> for char {
+    #[cfg_attr(feature = "inline", inline)]
     fn from(value: PieceType) -> Self {
         use PieceType::*;
         match value {
@@ -51,6 +56,7 @@ impl From<PieceType> for char {
     }
 }
 impl From<Piece> for char {
+    #[cfg_attr(feature = "inline", inline)]
     fn from(value: Piece) -> Self {
         let s = char::from(value.kind());
         match value.color() {
@@ -62,6 +68,7 @@ impl From<Piece> for char {
 
 impl TryFrom<char> for Piece {
     type Error = ();
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn try_from(value: char) -> Result<Self, Self::Error> {
         let kind = match value.to_ascii_lowercase() {
             'p' => PieceType::Pawn,

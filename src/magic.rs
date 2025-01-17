@@ -3,6 +3,7 @@ use std::arch::x86_64::_pext_u64;
 //use bitintr::Pext;
 
 #[cfg(feature = "pext")]
+#[cfg_attr(feature = "inline", inline)]
 fn pext(a: u64, b: u64) -> u64 {
     unsafe { _pext_u64(a, b) }
 }
@@ -29,6 +30,7 @@ struct SeededPRNG(u64);
 
 // https://vigna.di.unimi.it/ftp/papers/xorshift.pdf
 impl SeededPRNG {
+    #[cfg_attr(feature = "inline", inline)]
     fn get(&mut self) -> u64 {
         assert_ne!(self.0, 0);
         self.0 ^= self.0 >> 12;
@@ -38,6 +40,7 @@ impl SeededPRNG {
         self.0.wrapping_mul(2685821657736338717)
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     fn roll(&mut self) -> u64 {
         self.get() & self.get() & self.get()
     }
@@ -50,6 +53,7 @@ static mut BISHOP_ATTACKS: [Bitboard; 0x1480] = [Bitboard::new(0); 0x1480];
 static mut ROOK_ATTACKS: [Bitboard; 0x19000] = [Bitboard::new(0); 0x19000];
 
 impl Magic {
+    #[cfg_attr(feature = "inline", inline)]
     const fn new() -> Self {
         Self {
             pointer: std::ptr::null(),
@@ -61,24 +65,29 @@ impl Magic {
     }
 
     #[cfg(feature = "pext")]
+    #[cfg_attr(feature = "inline", inline)]
     fn index(&self, occupancy: Bitboard) -> isize {
         pext(u64::from(occupancy), u64::from(self.mask)) as isize
     }
 
     #[cfg(not(feature = "pext"))]
+    #[cfg_attr(feature = "inline", inline)]
     fn index(&self, occupancy: Bitboard) -> isize {
         ((self.mask & occupancy).mul(self.magic) >> self.shift).into_inner() as isize
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     fn attack(&self, occupancy: Bitboard) -> Bitboard {
         assert!(!self.pointer.is_null());
         unsafe { *self.pointer.offset(self.index(occupancy)) }
     }
 }
 
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     unsafe { BISHOP_MAGICS[square as usize] }.attack(occupancy)
 }
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     unsafe { ROOK_MAGICS[square as usize] }.attack(occupancy)
 }
@@ -198,6 +207,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
     }
 }
 
+#[cfg_attr(feature = "inline", inline)]
 pub(crate) fn init_magics() {
     init_magics_for(
         &raw mut BISHOP_MAGICS as *mut Magic,

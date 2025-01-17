@@ -42,27 +42,32 @@ pub enum Rank {
 }
 
 impl Square {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn new(file: File, rank: Rank) -> Self {
         let sq_idx = ((rank as u8) << 3) + (file as u8);
         // SAFETY: Bounds of file/rank enums make this bounded propertly in [0, 63].
         unsafe { transmute(sq_idx) }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn file(self) -> File {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 & 7) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn rank(self) -> Rank {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 >> 3) }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn distance(self, other: Square) -> i32 {
         let rank_dist = (self.rank() as u8).abs_diff(other.rank() as u8);
         let file_dist = (self.file() as u8).abs_diff(other.file() as u8);
         rank_dist.max(file_dist) as i32
     }
 
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     pub fn dir_to(self, other: Square) -> Option<Direction> {
         if !self.same_line(other) {
             return None;
@@ -92,6 +97,7 @@ impl Square {
         )
     }
 
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     pub fn same_line(self, other: Square) -> bool {
         if self == other {
             return false; // Unhelpful to say true.
@@ -107,6 +113,7 @@ impl Square {
         file_diff == rank_diff
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn relative(self, color: Color) -> Self {
         match color {
             Color::White => self,
@@ -114,15 +121,18 @@ impl Square {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn shift(self, dir: Direction) -> Option<Self> {
         Bitboard::from_square(self).shift(dir).into_iter().next()
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub unsafe fn shift_unchecked(self, dir: Direction) -> Self {
         self.shift(dir).unwrap_unchecked()
     }
 }
 
 impl From<Square> for u8 {
+    #[cfg_attr(feature = "inline", inline)]
     fn from(value: Square) -> Self {
         value as Self
     }
@@ -130,6 +140,7 @@ impl From<Square> for u8 {
 
 impl TryFrom<[u8; 2]> for Square {
     type Error = ();
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
         if value[0] < b'a' || value[1] < b'0' {
             return Err(());
@@ -150,6 +161,7 @@ impl TryFrom<[u8; 2]> for Square {
 }
 impl TryFrom<&[u8]> for Square {
     type Error = ();
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() != 2 {
             Err(())
@@ -172,6 +184,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn all() -> [Self; 8] {
         [
             Direction::North,
@@ -184,6 +197,7 @@ impl Direction {
             Direction::SouthWest,
         ]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn orthogonal() -> [Self; 4] {
         [
             Direction::North,
@@ -192,6 +206,7 @@ impl Direction {
             Direction::West,
         ]
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn diagonal() -> [Self; 4] {
         [
             Direction::NorthEast,
@@ -201,6 +216,7 @@ impl Direction {
         ]
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn is_forward(self) -> bool {
         use Direction::*;
         match self {
@@ -209,6 +225,7 @@ impl Direction {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn not(self) -> Self {
         use Direction::*;
         match self {
@@ -226,6 +243,7 @@ impl Direction {
 
 impl Not for Direction {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn not(self) -> Self::Output {
         self.not()
     }
@@ -248,11 +266,13 @@ impl std::fmt::Display for Rank {
 }
 
 impl From<Rank> for char {
+    #[cfg_attr(feature = "inline", inline)]
     fn from(value: Rank) -> Self {
         (b'1' + value as u8) as char
     }
 }
 impl From<File> for char {
+    #[cfg_attr(feature = "inline", inline)]
     fn from(value: File) -> Self {
         (b'a' + value as u8) as char
     }
@@ -260,6 +280,7 @@ impl From<File> for char {
 
 impl TryFrom<u8> for Rank {
     type Error = ();
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0..8 => Ok(unsafe { std::mem::transmute(value) }),
@@ -269,6 +290,7 @@ impl TryFrom<u8> for Rank {
 }
 impl TryFrom<u8> for File {
     type Error = ();
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0..8 => Ok(unsafe { std::mem::transmute(value) }),

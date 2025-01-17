@@ -9,56 +9,69 @@ use crate::square::{Direction, File, Rank, Square};
 pub struct Bitboard(u64);
 
 impl Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn new(value: u64) -> Self {
         Self(value)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn into_inner(self) -> u64 {
         self.0
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn lsb(self) -> Square {
         assert_ne!(self.0, 0);
         let index = self.0.trailing_zeros() as u8;
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
         unsafe { std::mem::transmute(index) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub unsafe fn lsb_unchecked(self) -> Square {
         assert_unchecked(self.0 != 0);
         std::mem::transmute(self.0.trailing_zeros() as u8)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn without_lsb(self) -> Self {
         Self::new(self.0 & self.0.wrapping_sub(1))
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn msb(self) -> Square {
         assert_ne!(self.0, 0);
         let index = self.0.leading_zeros() as u8;
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
         unsafe { std::mem::transmute(63 - index) }
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub unsafe fn msb_unchecked(self) -> Square {
         assert_unchecked(self.0 != 0);
         std::mem::transmute(63 - self.0.trailing_zeros() as u8)
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn has(self, sq: Square) -> bool {
         (self & Self::from(sq)).0 > 0
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn zero(self) -> bool {
         self.0 == 0
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn nonzero(self) -> bool {
         !self.zero()
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub fn more_than_one(self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) > 0
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub fn popcount(self) -> i32 {
         self.0.count_ones() as i32
     }
 
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     pub fn interval(a: Square, b: Square) -> Self {
         if let Some(dir) = a.dir_to(b) {
             precompute::ray(a, dir) & precompute::ray(b, !dir)
@@ -67,43 +80,55 @@ impl Bitboard {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitor(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitand(self, other: Self) -> Self {
         Self(self.0 & other.0)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitxor(self, other: Self) -> Self {
         Self(self.0 ^ other.0)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitor_assign(&mut self, other: Self) {
         self.0 |= other.0;
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitand_assign(&mut self, other: Self) {
         self.0 &= other.0;
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn bitxor_assign(&mut self, other: Self) {
         self.0 ^= other.0;
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn not(self) -> Self {
         Self(!self.0)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn neg(self) -> Self {
         Self(self.0.wrapping_neg())
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_rank(rank: Rank) -> Self {
         Self(0xff_u64 << (rank as usize * 8))
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_file(file: File) -> Self {
         let bb = 0x0101010101010101u64;
         Self(bb << (file as usize))
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_square(square: Square) -> Self {
         Self(1u64 << (square as usize))
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_ranks<const N: usize>(ranks: [Rank; N]) -> Self {
         let mut rv = Self(0);
         let mut i = 0;
@@ -113,6 +138,7 @@ impl Bitboard {
         }
         rv
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_files<const N: usize>(files: [File; N]) -> Self {
         let mut rv = Self(0);
         let mut i = 0;
@@ -122,6 +148,7 @@ impl Bitboard {
         }
         rv
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn from_squares<const N: usize>(squares: [Square; N]) -> Self {
         let mut rv = Self(0);
         let mut i = 0;
@@ -132,13 +159,16 @@ impl Bitboard {
         rv
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn shl(self, shift: i32) -> Self {
         Self(self.0 << shift)
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn shr(self, shift: i32) -> Self {
         Self(self.0 >> shift)
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn shift(self, dir: Direction) -> Self {
         use Direction::*;
         match dir {
@@ -153,12 +183,15 @@ impl Bitboard {
         }
     }
 
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn sub(self, other: Self) -> Self {
         Self(self.0.wrapping_sub(other.0))
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn mul(self, other: Self) -> Self {
         Self(self.0.wrapping_mul(other.0))
     }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn add(self, other: Self) -> Self {
         Self(self.0.wrapping_add(other.0))
     }
@@ -194,28 +227,33 @@ impl std::fmt::Display for Bitboard {
 }
 
 impl From<u64> for Bitboard {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: u64) -> Self {
         Self::new(value)
     }
 }
 impl From<Bitboard> for u64 {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: Bitboard) -> Self {
         value.0
     }
 }
 
 impl From<Bitboard> for bool {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: Bitboard) -> Self {
         value.0 != 0
     }
 }
 
 impl From<Square> for Bitboard {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: Square) -> Self {
         Self::from_square(value)
     }
 }
 impl From<Option<Square>> for Bitboard {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: Option<Square>) -> Self {
         match value {
             Some(s) => Self::from_square(s),
@@ -224,11 +262,13 @@ impl From<Option<Square>> for Bitboard {
     }
 }
 impl From<File> for Bitboard {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: File) -> Self {
         Self::from_file(value)
     }
 }
 impl From<Rank> for Bitboard {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: Rank) -> Self {
         Self::from_rank(value)
     }
@@ -237,6 +277,7 @@ impl<T> From<&[T]> for Bitboard
 where
     T: Into<Bitboard> + Copy,
 {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: &[T]) -> Self {
         let mut rv = 0.into();
         for &v in value {
@@ -250,6 +291,7 @@ impl<const N: usize, T> From<[T; N]> for Bitboard
 where
     T: Into<Bitboard>,
 {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: [T; N]) -> Self {
         let mut rv = 0.into();
 
@@ -263,6 +305,7 @@ where
 
 impl Iterator for BitboardIter {
     type Item = Square;
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         if u64::from(self.0) == 0 {
             None
@@ -274,6 +317,7 @@ impl Iterator for BitboardIter {
     }
 }
 impl DoubleEndedIterator for BitboardIter {
+    #[cfg_attr(feature = "inline-aggressive", inline)]
     fn next_back(&mut self) -> Option<Self::Item> {
         if u64::from(self.0) == 0 {
             None
@@ -287,6 +331,7 @@ impl DoubleEndedIterator for BitboardIter {
 impl IntoIterator for Bitboard {
     type Item = Square;
     type IntoIter = BitboardIter;
+    #[cfg_attr(feature = "inline", inline)]
     fn into_iter(self) -> Self::IntoIter {
         BitboardIter(self)
     }
@@ -294,12 +339,14 @@ impl IntoIterator for Bitboard {
 
 impl Not for Bitboard {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn not(self) -> Self::Output {
         self.not()
     }
 }
 impl Neg for Bitboard {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn neg(self) -> Self::Output {
         self.neg()
     }
@@ -307,24 +354,28 @@ impl Neg for Bitboard {
 
 impl BitAnd for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand(self, rhs: Self) -> Self::Output {
         self.bitand(rhs)
     }
 }
 impl BitAnd<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand(self, rhs: &Bitboard) -> Self::Output {
         self.bitand(*rhs)
     }
 }
 impl BitAnd for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand(self, rhs: &Bitboard) -> Self::Output {
         (*self).bitand(*rhs)
     }
 }
 impl BitAnd<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand(self, rhs: Bitboard) -> Self::Output {
         (*self).bitand(rhs)
     }
@@ -332,24 +383,28 @@ impl BitAnd<Bitboard> for &Bitboard {
 
 impl BitOr for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor(self, rhs: Self) -> Self::Output {
         self.bitor(rhs)
     }
 }
 impl BitOr<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor(self, rhs: &Bitboard) -> Self::Output {
         self.bitor(*rhs)
     }
 }
 impl BitOr for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor(self, rhs: &Bitboard) -> Self::Output {
         (*self).bitor(*rhs)
     }
 }
 impl BitOr<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor(self, rhs: Bitboard) -> Self::Output {
         (*self).bitor(rhs)
     }
@@ -357,57 +412,67 @@ impl BitOr<Bitboard> for &Bitboard {
 
 impl BitXor for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor(self, rhs: Self) -> Self::Output {
         self.bitxor(rhs)
     }
 }
 impl BitXor<&Bitboard> for Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor(self, rhs: &Bitboard) -> Self::Output {
         self.bitxor(*rhs)
     }
 }
 impl BitXor for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor(self, rhs: &Bitboard) -> Self::Output {
         (*self).bitxor(*rhs)
     }
 }
 impl BitXor<Bitboard> for &Bitboard {
     type Output = Bitboard;
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor(self, rhs: Bitboard) -> Self::Output {
         (*self).bitxor(rhs)
     }
 }
 
 impl BitAndAssign for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand_assign(&mut self, rhs: Self) {
         self.bitand_assign(rhs);
     }
 }
 impl BitAndAssign<&Bitboard> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitand_assign(&mut self, rhs: &Bitboard) {
         self.bitand_assign(*rhs);
     }
 }
 
 impl BitOrAssign for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor_assign(&mut self, rhs: Self) {
         self.bitor_assign(rhs);
     }
 }
 impl BitOrAssign<&Bitboard> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitor_assign(&mut self, rhs: &Bitboard) {
         self.bitor_assign(*rhs);
     }
 }
 
 impl BitXorAssign for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor_assign(&mut self, rhs: Self) {
         self.bitxor_assign(rhs);
     }
 }
 impl BitXorAssign<&Bitboard> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn bitxor_assign(&mut self, rhs: &Bitboard) {
         self.bitxor_assign(*rhs);
     }
@@ -415,23 +480,27 @@ impl BitXorAssign<&Bitboard> for Bitboard {
 
 impl Shl<i32> for Bitboard {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn shl(self, rhs: i32) -> Self::Output {
         self.shl(rhs)
     }
 }
 impl Shr<i32> for Bitboard {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn shr(self, rhs: i32) -> Self::Output {
         self.shr(rhs)
     }
 }
 
 impl ShlAssign<i32> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn shl_assign(&mut self, rhs: i32) {
         *self = self.shl(rhs);
     }
 }
 impl ShrAssign<i32> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn shr_assign(&mut self, rhs: i32) {
         *self = self.shr(rhs);
     }
@@ -439,11 +508,13 @@ impl ShrAssign<i32> for Bitboard {
 
 impl Shl<Direction> for Bitboard {
     type Output = Self;
+    #[cfg_attr(feature = "inline", inline)]
     fn shl(self, rhs: Direction) -> Self::Output {
         self.shift(rhs)
     }
 }
 impl ShlAssign<Direction> for Bitboard {
+    #[cfg_attr(feature = "inline", inline)]
     fn shl_assign(&mut self, rhs: Direction) {
         *self = self.shift(rhs);
     }
