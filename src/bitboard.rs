@@ -41,6 +41,12 @@ impl Bitboard {
         (self & Self::from(sq)).0 > 0
     }
 
+    pub const fn zero(self) -> bool {
+        self.0 == 0
+    }
+    pub const fn nonzero(self) -> bool {
+        !self.zero()
+    }
     pub fn more_than_one(self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) > 0
     }
