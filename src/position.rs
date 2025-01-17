@@ -327,11 +327,8 @@ impl Position {
 
         // XXX Should this check more than just plegal?
         let inb = Bitboard::interval(cf.from_square(), cf.rook_from_square());
-        if bool::from(inb & self.all()) {
-            return false;
-        }
 
-        true
+        !bool::from(inb & self.all())
     }
 
     // State access, and mutations

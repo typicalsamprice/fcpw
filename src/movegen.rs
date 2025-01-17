@@ -214,27 +214,26 @@ pub mod generate {
         }
 
         // Captures
-        for p in non_promotions {
-            let up = unsafe { p.shift_unchecked(forward) };
-            let w = Bitboard::from(up.shift(West));
-            let e = Bitboard::from(up.shift(East));
+        let up_east = non_promotions.shift(forward).shift(East) & enemies;
+        let up_west = non_promotions.shift(forward).shift(West) & enemies;
 
-            if bool::from(w & enemies) {
-                let t = if up.shift(West) == pos.ep() {
-                    MoveKind::EnPassant
-                } else {
-                    MoveKind::Normal
-                };
-                list.push(Move::new_with_kind(p, unsafe { w.lsb_unchecked() }, t));
-            }
-            if bool::from(e & enemies) {
-                let t = if up.shift(East) == pos.ep() {
-                    MoveKind::EnPassant
-                } else {
-                    MoveKind::Normal
-                };
-                list.push(Move::new_with_kind(p, unsafe { e.lsb_unchecked() }, t));
-            }
+        for x in up_east {
+            let f = unsafe { x.shift_unchecked(forward.not()).shift_unchecked(West) };
+            let t = if Some(x) == pos.ep() {
+                MoveKind::EnPassant
+            } else {
+                MoveKind::Normal
+            };
+            list.push(Move::new_with_kind(f, x, t));
+        }
+        for x in up_west {
+            let f = unsafe { x.shift_unchecked(forward.not()).shift_unchecked(East) };
+            let t = if Some(x) == pos.ep() {
+                MoveKind::EnPassant
+            } else {
+                MoveKind::Normal
+            };
+            list.push(Move::new_with_kind(f, x, t));
         }
     }
 
