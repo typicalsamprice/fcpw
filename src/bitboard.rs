@@ -13,6 +13,10 @@ impl Bitboard {
     pub const fn new(value: u64) -> Self {
         Self(value)
     }
+    #[inline]
+    pub const fn into_inner(self) -> u64 {
+        self.0
+    }
 
     pub fn lsb(self) -> Square {
         assert_ne!(self.0, 0);
@@ -56,6 +60,99 @@ impl Bitboard {
         } else {
             Self::new(0)
         }
+    }
+
+    pub const fn bitor(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+    pub const fn bitand(self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+    pub const fn bitxor(self, other: Self) -> Self {
+        Self(self.0 ^ other.0)
+    }
+    pub const fn bitor_assign(&mut self, other: Self) {
+        self.0 |= other.0;
+    }
+    pub const fn bitand_assign(&mut self, other: Self) {
+        self.0 &= other.0;
+    }
+    pub const fn bitxor_assign(&mut self, other: Self) {
+        self.0 ^= other.0;
+    }
+
+    pub const fn not(self) -> Self {
+        Self(!self.0)
+    }
+
+    pub const fn from_rank(rank: Rank) -> Self {
+        Self(0xff_u64 << (rank as usize * 8))
+    }
+    pub const fn from_file(file: File) -> Self {
+        let bb = 0x0101010101010101u64;
+        Self(bb << (file as usize))
+    }
+    pub const fn from_square(square: Square) -> Self {
+        Self(1u64 << (square as usize))
+    }
+
+    pub const fn from_ranks<const N: usize>(ranks: [Rank; N]) -> Self {
+        let mut rv = Self(0);
+        let mut i = 0;
+        while i < N {
+            rv.bitor_assign(Self::from_rank(ranks[i]));
+            i += 1;
+        }
+        rv
+    }
+    pub const fn from_files<const N: usize>(files: [File; N]) -> Self {
+        let mut rv = Self(0);
+        let mut i = 0;
+        while i < N {
+            rv.bitor_assign(Self::from_file(files[i]));
+            i += 1;
+        }
+        rv
+    }
+    pub const fn from_squares<const N: usize>(squares: [Square; N]) -> Self {
+        let mut rv = Self(0);
+        let mut i = 0;
+        while i < N {
+            rv.bitor_assign(Self::from_square(squares[i]));
+            i += 1;
+        }
+        rv
+    }
+
+    pub const fn shl(self, shift: i32) -> Self {
+        Self(self.0 << shift)
+    }
+    pub const fn shr(self, shift: i32) -> Self {
+        Self(self.0 >> shift)
+    }
+
+    pub const fn shift(self, dir: Direction) -> Self {
+        use Direction::*;
+        match dir {
+            East => self.shl(1).bitand(Self::from_file(File::A).not()),
+            West => self.shr(1).bitand(Self::from_file(File::H).not()),
+            North => self.shl(8),
+            South => self.shr(8),
+            NorthEast => self.shift(North).shift(East),
+            NorthWest => self.shift(North).shift(West),
+            SouthEast => self.shift(South).shift(East),
+            SouthWest => self.shift(South).shift(West),
+        }
+    }
+
+    pub const fn sub(self, other: Self) -> Self {
+        Self(self.0.wrapping_sub(other.0))
+    }
+    pub const fn mul(self, other: Self) -> Self {
+        Self(self.0.wrapping_mul(other.0))
+    }
+    pub const fn add(self, other: Self) -> Self {
+        Self(self.0.wrapping_add(other.0))
     }
 }
 

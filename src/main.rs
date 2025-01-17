@@ -1,7 +1,9 @@
-#![allow(unused)]
+#![allow(dead_code, unused_imports)]
 mod bitboard;
 mod color;
 mod macros;
+//#[cfg(feature = "magic")]
+mod magic;
 mod movegen;
 mod perft;
 mod piece;

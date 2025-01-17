@@ -218,12 +218,9 @@ impl Direction {
             _ => false,
         }
     }
-}
 
-impl Not for Direction {
-    type Output = Self;
     #[inline]
-    fn not(self) -> Self::Output {
+    pub const fn not(self) -> Self {
         use Direction::*;
         match self {
             North => South,
@@ -235,6 +232,14 @@ impl Not for Direction {
             NorthWest => SouthEast,
             SouthEast => NorthWest,
         }
+    }
+}
+
+impl Not for Direction {
+    type Output = Self;
+    #[inline]
+    fn not(self) -> Self::Output {
+        self.not()
     }
 }
 
