@@ -13,7 +13,7 @@ pub fn perft(pos: &mut Position, depth: usize) -> usize {
         return moves.len();
     }
 
-    for x in moves {
+    for x in &moves {
         pos.make_move(x);
         let c = perft__(pos, depth - 1);
         nodes += c;
@@ -36,7 +36,7 @@ fn perft__(pos: &mut Position, depth: usize) -> usize {
         return moves.len();
     }
 
-    for x in moves {
+    for x in &moves {
         pos.make_move(x);
         nodes += perft__(pos, depth - 1);
         pos.unmake_move(x);

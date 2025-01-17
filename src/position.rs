@@ -3,7 +3,7 @@ use crate::color::Color;
 use crate::movegen::{Move, MoveKind};
 use crate::piece::{Piece, PieceType};
 use crate::square::{File, Rank, Square};
-use crate::{line, precompute, strict_cond, strict_eq, strict_ne, strict_not};
+use crate::{precompute, strict_cond, strict_eq, strict_ne, strict_not};
 
 #[derive(Debug)]
 pub struct Position {
@@ -410,7 +410,7 @@ impl Position {
             // If not, it means we aren't on [pinner, king).
             // Technically, we SHOULD check only the interval there ^^,
             // but this isn't needed since we cannot "jump" pieces nor capture the king.
-            if !bool::from(line(from, self.king(us)) & Bitboard::from(to)) {
+            if !bool::from(precompute::line(from, self.king(us)) & Bitboard::from(to)) {
                 return false;
             }
         }

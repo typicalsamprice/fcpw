@@ -118,6 +118,68 @@ impl Move {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct MoveList {
+    inner: [Option<Move>; 256],
+    length: usize,
+}
+
+impl MoveList {
+    pub const fn new() -> Self {
+        Self {
+            inner: [None; 256],
+            length: 0,
+        }
+    }
+
+    pub const fn get(&self, index: usize) -> Option<Move> {
+        if index >= self.length {
+            None
+        } else {
+            self.inner[index]
+        }
+    }
+    pub const fn len(&self) -> usize {
+        self.length
+    }
+
+    pub const fn push(&mut self, mov: Move) {
+        assert!(self.length < 256);
+        self.inner[self.length] = Some(mov);
+        self.length += 1;
+    }
+    pub const fn remove(&mut self, index: usize) {
+        assert!(index < self.length);
+        self.length -= 1;
+        if index < self.length {
+            self.inner[index] = self.inner[self.length];
+        }
+    }
+}
+
+pub struct MoveListIter<'a>(std::slice::Iter<'a, Option<Move>>);
+
+impl<'a> MoveListIter<'a> {
+    fn new(lst: &'a MoveList) -> Self {
+        Self(lst.inner[0..lst.length].iter())
+    }
+}
+
+impl<'a> Iterator for MoveListIter<'a> {
+    type Item = Move;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().copied().flatten()
+    }
+}
+
+impl<'a> IntoIterator for &'a MoveList {
+    type Item = Move;
+    type IntoIter = MoveListIter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        MoveListIter::new(self)
+    }
+}
+
 impl std::fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let prom_s = self
@@ -132,8 +194,8 @@ pub mod generate {
 
     use super::*;
 
-    pub fn pseudo_legal(pos: &Position) -> Vec<Move> {
-        let mut moves = Vec::with_capacity(256);
+    pub fn pseudo_legal(pos: &Position) -> MoveList {
+        let mut moves = MoveList::new();
 
         pawn_moves(pos, &mut moves);
         knight_moves(pos, &mut moves);
@@ -146,19 +208,20 @@ pub mod generate {
         moves
     }
 
-    pub fn legal(pos: &Position) -> Vec<Move> {
+    pub fn legal(pos: &Position) -> MoveList {
         let mut moves = pseudo_legal(pos);
         prune_to_legal(pos, &mut moves);
         moves
     }
 
-    fn prune_to_legal(pos: &Position, list: &mut Vec<Move>) {
+    fn prune_to_legal(pos: &Position, list: &mut MoveList) {
         let mut i = 0;
         let us = pos.to_move();
         let king = pos.king(us);
         // TODO list.filter(...)
         while i < list.len() {
-            let m = list[i];
+            // SAFETY: Cannot be none, since i < length
+            let m = unsafe { list.get(i).unwrap_unchecked() };
             if (m.from() == king
                 || pos.blockers(us).has(m.from())
                 || m.kind() == MoveKind::EnPassant
@@ -174,7 +237,7 @@ pub mod generate {
 
     // Generation helpers.
 
-    fn pawn_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn pawn_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
 
         let enemies = pos.color(!us) | Bitboard::from(pos.ep());
@@ -240,13 +303,13 @@ pub mod generate {
         }
     }
 
-    fn add_prom(from: Square, to: Square, list: &mut Vec<Move>) {
+    fn add_prom(from: Square, to: Square, list: &mut MoveList) {
         for kind in PieceType::promotable() {
             list.push(Move::new_with_kind(from, to, MoveKind::Promotion(kind)));
         }
     }
 
-    fn knight_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn knight_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let knights = pos.spec(PieceType::Knight, us);
 
@@ -258,7 +321,7 @@ pub mod generate {
             }
         }
     }
-    fn king_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn king_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let king = pos.king(us);
 
@@ -279,7 +342,7 @@ pub mod generate {
         }
     }
 
-    fn bishop_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn bishop_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let bishops = pos.spec(PieceType::Bishop, us);
         let targets = !pos.color(us); // XXX Can change if not wanting captures
@@ -291,7 +354,7 @@ pub mod generate {
             }
         }
     }
-    fn rook_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn rook_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let rooks = pos.spec(PieceType::Rook, us);
         let targets = !pos.color(us); // XXX Can change if not wanting captures
@@ -303,7 +366,7 @@ pub mod generate {
             }
         }
     }
-    fn queen_moves(pos: &Position, list: &mut Vec<Move>) {
+    fn queen_moves(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let queens = pos.spec(PieceType::Queen, us);
         let targets = !pos.color(us); // XXX Can change if not wanting captures
@@ -316,7 +379,7 @@ pub mod generate {
         }
     }
 
-    fn all_sliders_at_once(pos: &Position, list: &mut Vec<Move>) {
+    fn all_sliders_at_once(pos: &Position, list: &mut MoveList) {
         let us = pos.to_move();
         let queens = pos.spec(PieceType::Queen, us);
         let bishops = pos.spec(PieceType::Bishop, us);

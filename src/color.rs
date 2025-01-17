@@ -1,6 +1,6 @@
 use std::ops::Not;
 
-use crate::{square::Rank, Direction};
+use crate::square::{Direction, Rank};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 pub enum Color {
