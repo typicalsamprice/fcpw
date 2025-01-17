@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use crate::color::Color;
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
@@ -10,21 +12,21 @@ pub enum PieceType {
     King,
 }
 
+// Bits 0-2 => Enough to give pieces types. Specifically, the values 1-7 are held, and we subtract one on conversion to keep nonzero-ness.
+// Then, the fourth bit is for color!
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
-pub struct Piece {
-    kind: PieceType,
-    color: Color,
-}
+pub struct Piece(NonZeroU8);
 
 impl Piece {
     pub const fn new(kind: PieceType, color: Color) -> Self {
-        Self { kind, color }
+        let inner = (kind as u8 + 1) | ((color as u8) << 3);
+        Self(unsafe { NonZeroU8::new_unchecked(inner) })
     }
     pub const fn kind(&self) -> PieceType {
-        self.kind
+        unsafe { std::mem::transmute((self.0.get() & 7) - 1) }
     }
     pub const fn color(&self) -> Color {
-        self.color
+        unsafe { std::mem::transmute(self.0.get() >> 3) }
     }
 }
 
