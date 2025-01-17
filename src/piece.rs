@@ -17,22 +17,18 @@ pub struct Piece {
 }
 
 impl Piece {
-    #[inline]
     pub const fn new(kind: PieceType, color: Color) -> Self {
         Self { kind, color }
     }
-    #[inline]
     pub const fn kind(&self) -> PieceType {
         self.kind
     }
-    #[inline]
     pub const fn color(&self) -> Color {
         self.color
     }
 }
 
 impl PieceType {
-    #[inline]
     pub const fn promotable() -> [Self; 4] {
         use PieceType::*;
         [Knight, Bishop, Rook, Queen]

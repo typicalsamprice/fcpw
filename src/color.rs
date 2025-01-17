@@ -9,7 +9,6 @@ pub enum Color {
 }
 
 impl Color {
-    #[inline]
     pub const fn relative_rank(self, rank: Rank) -> Rank {
         match self {
             Color::White => rank,
@@ -17,7 +16,6 @@ impl Color {
         }
     }
 
-    #[inline]
     pub const fn forward(self) -> Direction {
         match self {
             Color::White => Direction::North,
@@ -25,7 +23,6 @@ impl Color {
         }
     }
 
-    #[inline]
     pub const fn not(self) -> Self {
         match self {
             Color::White => Color::Black,

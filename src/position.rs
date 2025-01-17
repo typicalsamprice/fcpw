@@ -131,7 +131,6 @@ impl Position {
     pub const KIWIPETE_FEN: &'static str =
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -  0 1";
 
-    #[inline]
     pub fn new() -> Self {
         Self {
             board: [None; 64],
@@ -308,16 +307,13 @@ impl Position {
         self.pieces_list(ts) & self.color(c)
     }
 
-    #[inline]
     pub const fn piece_on(&self, s: Square) -> Option<Piece> {
         self.board[s as usize]
     }
-    #[inline]
     pub const fn empty(&self, s: Square) -> bool {
         self.piece_on(s).is_none()
     }
 
-    #[inline]
     pub fn king(&self, color: Color) -> Square {
         debug_assert_ne!(self.spec(PieceType::King, color), Bitboard::new(0));
         // SAFETY: King always has to exist.
@@ -342,38 +338,30 @@ impl Position {
     }
 
     // State access, and mutations
-    #[inline]
     pub const fn state(&self) -> &State {
         self.state.as_ref().unwrap()
     }
-    #[inline]
     const fn state_mut(&mut self) -> &mut State {
         self.state.as_mut().unwrap()
     }
 
     // Non-setting access
-    #[inline]
     pub const fn ep(&self) -> Option<Square> {
         self.state().en_passant
     }
-    #[inline]
     pub const fn checkers(&self) -> Bitboard {
         self.state().checkers
     }
-    #[inline]
     pub const fn pinners(&self, color: Color) -> Bitboard {
         self.state().pinners[color as usize]
     }
-    #[inline]
     pub const fn blockers(&self, color: Color) -> Bitboard {
         self.state().blockers[color as usize]
     }
-    #[inline]
     pub const fn rule50(&self) -> i32 {
         self.state().halfmoves
     }
 
-    #[inline]
     pub fn in_check(&self) -> bool {
         bool::from(self.checkers())
     }

@@ -42,25 +42,21 @@ pub enum Rank {
 }
 
 impl Square {
-    #[inline]
     pub const fn new(file: File, rank: Rank) -> Self {
         let sq_idx = ((rank as u8) << 3) + (file as u8);
         // SAFETY: Bounds of file/rank enums make this bounded propertly in [0, 63].
         unsafe { transmute(sq_idx) }
     }
 
-    #[inline]
     pub const fn file(self) -> File {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 & 7) }
     }
-    #[inline]
     pub const fn rank(self) -> Rank {
         // SAFETY: Limits of square enum makes this bounded properly.
         unsafe { transmute(self as u8 >> 3) }
     }
 
-    #[inline]
     pub fn distance(self, other: Square) -> i32 {
         let rank_dist = (self.rank() as u8).abs_diff(other.rank() as u8);
         let file_dist = (self.file() as u8).abs_diff(other.file() as u8);
@@ -118,11 +114,9 @@ impl Square {
         }
     }
 
-    #[inline]
     pub fn shift(self, dir: Direction) -> Option<Self> {
         (Bitboard::from(self) << dir).into_iter().next()
     }
-    #[inline]
     pub unsafe fn shift_unchecked(self, dir: Direction) -> Self {
         self.shift(dir).unwrap_unchecked()
     }
@@ -178,7 +172,6 @@ pub enum Direction {
 }
 
 impl Direction {
-    #[inline]
     pub const fn all() -> [Self; 8] {
         [
             Direction::North,
@@ -191,7 +184,6 @@ impl Direction {
             Direction::SouthWest,
         ]
     }
-    #[inline]
     pub const fn orthogonal() -> [Self; 4] {
         [
             Direction::North,
@@ -200,7 +192,6 @@ impl Direction {
             Direction::West,
         ]
     }
-    #[inline]
     pub const fn diagonal() -> [Self; 4] {
         [
             Direction::NorthEast,
@@ -210,7 +201,6 @@ impl Direction {
         ]
     }
 
-    #[inline]
     pub const fn is_forward(self) -> bool {
         use Direction::*;
         match self {
@@ -219,7 +209,6 @@ impl Direction {
         }
     }
 
-    #[inline]
     pub const fn not(self) -> Self {
         use Direction::*;
         match self {
@@ -237,7 +226,6 @@ impl Direction {
 
 impl Not for Direction {
     type Output = Self;
-    #[inline]
     fn not(self) -> Self::Output {
         self.not()
     }
