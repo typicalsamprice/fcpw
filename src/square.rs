@@ -115,7 +115,7 @@ impl Square {
     }
 
     pub fn shift(self, dir: Direction) -> Option<Self> {
-        (Bitboard::from(self) << dir).into_iter().next()
+        Bitboard::from_square(self).shift(dir).into_iter().next()
     }
     pub unsafe fn shift_unchecked(self, dir: Direction) -> Self {
         self.shift(dir).unwrap_unchecked()
