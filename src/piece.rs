@@ -91,3 +91,47 @@ impl std::fmt::Display for Piece {
         write!(f, "{}", char::from(*self))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use Color::*;
+    use PieceType::*;
+
+    #[test]
+    fn piece_conversion_from_char() {
+        assert_eq!(Piece::try_from('p'), Ok(Piece::new(Pawn, Black)));
+        assert_eq!(Piece::try_from('P'), Ok(Piece::new(Pawn, White)));
+        assert_eq!(Piece::try_from('Q'), Ok(Piece::new(Queen, White)));
+        assert_eq!(Piece::try_from('b'), Ok(Piece::new(Bishop, Black)));
+
+        assert_eq!(Piece::try_from('Z'), Err(()));
+        assert_eq!(Piece::try_from('y'), Err(()));
+        assert_eq!(Piece::try_from('!'), Err(()));
+    }
+
+    #[test]
+    fn piecetype_conversion_to_char() {
+        assert_eq!(char::from(Pawn), 'p');
+        assert_eq!(char::from(Knight), 'n');
+        assert_eq!(char::from(Bishop), 'b');
+        assert_eq!(char::from(Rook), 'r');
+        assert_eq!(char::from(Queen), 'q');
+        assert_eq!(char::from(King), 'k');
+    }
+    #[test]
+    fn piece_conversion_to_char() {
+        assert_eq!(char::from(Piece::new(Pawn, White)), 'P');
+        assert_eq!(char::from(Piece::new(Knight, White)), 'N');
+        assert_eq!(char::from(Piece::new(Bishop, White)), 'B');
+        assert_eq!(char::from(Piece::new(Rook, White)), 'R');
+        assert_eq!(char::from(Piece::new(Queen, White)), 'Q');
+        assert_eq!(char::from(Piece::new(King, White)), 'K');
+        assert_eq!(char::from(Piece::new(Pawn, Black)), 'p');
+        assert_eq!(char::from(Piece::new(Knight, Black)), 'n');
+        assert_eq!(char::from(Piece::new(Bishop, Black)), 'b');
+        assert_eq!(char::from(Piece::new(Rook, Black)), 'r');
+        assert_eq!(char::from(Piece::new(Queen, Black)), 'q');
+        assert_eq!(char::from(Piece::new(King, Black)), 'k');
+    }
+}

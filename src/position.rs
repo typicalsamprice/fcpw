@@ -788,3 +788,6 @@ impl std::fmt::Display for Position {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {}
