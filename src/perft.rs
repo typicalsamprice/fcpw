@@ -6,7 +6,6 @@ pub fn perft(pos: &mut Position, depth: usize) -> usize {
         return 1;
     }
 
-    let leaf = depth == 1;
     let mut nodes = 0;
     let moves = generate::legal(pos);
 
@@ -30,7 +29,6 @@ fn perft__(pos: &mut Position, depth: usize) -> usize {
         return 1;
     }
 
-    let leaf = depth == 1;
     let mut nodes = 0;
     let moves = generate::legal(pos);
 

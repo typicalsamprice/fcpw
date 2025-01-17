@@ -266,10 +266,7 @@ impl Position {
                 let r = Rank::try_from(r_char as u8).unwrap();
                 let s = Square::new(f, r);
 
-                // SAFETY: Trust me bro.
-                unsafe {
-                    pos.state_mut().en_passant = Some(s);
-                }
+                pos.state_mut().en_passant = Some(s);
             }
         }
 
@@ -450,7 +447,7 @@ impl Position {
     pub fn make_move(&mut self, mov: Move) {
         strict_cond!(self.is_legal(mov));
 
-        let mut new_state = self.state.clone().unwrap();
+        let new_state = self.state.clone().unwrap();
         let old = self.state.replace(new_state);
         self.state_mut().previous = old;
 
@@ -495,7 +492,7 @@ impl Position {
             } else if let MoveKind::Promotion(promo_type) = flag {
                 strict_ne!(promo_type, PieceType::Pawn);
                 strict_ne!(promo_type, PieceType::King);
-                self.remove_piece(from);
+                let _ = self.remove_piece(from);
                 self.add_piece(Piece::new(promo_type, us), from);
             }
         }
@@ -666,16 +663,10 @@ impl Position {
     }
 
     fn add_castle_right(&mut self, cf: CastleFlag) {
-        // Safety:: this is only used in Position::new_from_fen - state ref can't be invalidated and is released immediately.
-        unsafe {
-            self.state_mut().castle_rights |= u8::from(cf);
-        }
+        self.state_mut().castle_rights |= u8::from(cf);
     }
     fn remove_castle_right(&mut self, cf: CastleFlag) {
-        // Safety:: this is only used in Position::new_from_fen - state ref can't be invalidated and is released immediately.
-        unsafe {
-            self.state_mut().castle_rights &= !u8::from(cf);
-        }
+        self.state_mut().castle_rights &= !u8::from(cf);
     }
 
     fn attacks_to(&self, square: Square, by: Color) -> Bitboard {
