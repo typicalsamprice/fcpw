@@ -567,10 +567,6 @@ impl Position {
         let old_state = self.state_mut().previous.take();
         self.state = old_state;
 
-        let mover = self
-            .piece_on(from)
-            .expect("unmake_move: Piece disappeared.");
-
         match flag {
             MoveKind::EnPassant => {
                 let _ = self.remove_piece(to);
