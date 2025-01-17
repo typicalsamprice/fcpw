@@ -1,3 +1,5 @@
+use std::num::NonZeroU16;
+
 use crate::bitboard::Bitboard;
 use crate::color::Color::{self, *};
 use crate::piece::PieceType;
@@ -6,13 +8,16 @@ use crate::square::Direction::*;
 use crate::square::{Rank, Square};
 use crate::strict_ne;
 
-// TODO: Maybe use NonZeroU16 to make use of NPO when using Option<Move>
+// Layout of Move.
+// Bits 0-5: From square
+// Bits 6-11: To square
+// Bit 12-14 is three bits to indicate flag.
+// 000 -> Normal
+// 110 -> Castle
+// 111 -> EP
+// XYZ -> Piece of type XYZ (transmuted), with invalid types already taken.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Move {
-    from: Square,
-    to: Square,
-    kind: MoveKind,
-}
+pub struct Move(NonZeroU16);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MoveKind {
@@ -24,30 +29,21 @@ pub enum MoveKind {
 
 impl Move {
     pub fn new(from: Square, to: Square) -> Self {
-        strict_ne!(from, to);
-        Self {
-            from,
-            to,
-            kind: MoveKind::Normal,
-        }
+        assert_ne!(from, to);
+        Self::new_with_kind(from, to, MoveKind::Normal)
     }
     pub fn new_with_kind(from: Square, to: Square, kind: MoveKind) -> Self {
-        if cfg!(feature = "strict_checks") {
-            assert_ne!(from, to);
-            if kind == MoveKind::Castle {
-                assert_eq!(from.rank(), to.rank());
-            } else if kind == MoveKind::EnPassant {
-                let from_i = from.rank() as i32;
-                let to_i = to.rank() as i32;
-                let d = from_i.abs_diff(to_i);
-                assert_eq!(d, 1);
-            } else if let MoveKind::Promotion(promotion_type) = kind {
-                assert_ne!(promotion_type, PieceType::Pawn);
-                assert_ne!(promotion_type, PieceType::King);
+        let squares_u16 = (from as u16) | ((to as u16) << 6);
+        let flag_u16 = match kind {
+            MoveKind::Promotion(PieceType::Pawn) | MoveKind::Promotion(PieceType::King) => {
+                panic!("Invalid promotion type given to Move constructor")
             }
-        }
-
-        Self { from, to, kind }
+            MoveKind::Normal => 0,
+            MoveKind::Castle => 0x6000,
+            MoveKind::EnPassant => 0x7000,
+            MoveKind::Promotion(typ) => (typ as u16) << 12,
+        };
+        Self(unsafe { NonZeroU16::new_unchecked(squares_u16 | flag_u16) })
     }
 
     // Get a `Move` from a UCI-encoded move. That is, a move that only has the `from` and `to` designations.
@@ -93,13 +89,20 @@ impl Move {
     }
 
     pub const fn from(self) -> Square {
-        self.from
+        unsafe { std::mem::transmute((self.0.get() & 0x3f) as u8) }
     }
     pub const fn to(self) -> Square {
-        self.to
+        unsafe { std::mem::transmute(((self.0.get() >> 6) & 0x3f) as u8) }
     }
     pub const fn kind(self) -> MoveKind {
-        self.kind
+        let bits = ((self.0.get() >> 12) & 0x7) as u8;
+        match bits {
+            0 => MoveKind::Normal,
+            x if x >= 1 && x <= 4 => MoveKind::Promotion(unsafe { std::mem::transmute(x) }),
+            6 => MoveKind::Castle,
+            7 => MoveKind::EnPassant,
+            _ => panic!("Illegal bit combination in 3 bits."),
+        }
     }
     pub const fn is_promo(self) -> bool {
         match self.kind() {
@@ -332,5 +335,60 @@ pub mod generate {
                 list.push(Move::new(r, t));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use MoveKind::*;
+    use PieceType::*;
+    use Square::*;
+
+    #[test]
+    fn created_moves_have_expected_squares() {
+        let m1 = Move::new(A1, A2);
+        assert_eq!(m1.from(), A1);
+        assert_eq!(m1.to(), A2);
+        assert_eq!(m1.kind(), Normal);
+
+        let m2 = Move::new(A5, H8);
+        assert_eq!(m2.from(), A5);
+        assert_eq!(m2.to(), H8);
+        assert_eq!(m2.kind(), Normal);
+    }
+
+    #[test]
+    fn promotion_type_encodes() {
+        let m1 = Move::new_with_kind(A1, A2, Promotion(Knight));
+        assert_eq!(m1.from(), A1);
+        assert_eq!(m1.to(), A2);
+        assert_eq!(m1.kind(), Promotion(Knight));
+
+        let m2 = Move::new_with_kind(A1, E8, Promotion(Queen));
+        assert_eq!(m2.from(), A1);
+        assert_eq!(m2.to(), E8);
+        assert_eq!(m2.kind(), Promotion(Queen));
+
+        assert_eq!(m1.is_promo(), true);
+        assert_eq!(m2.is_promo(), true);
+
+        assert_eq!(m1.get_promo(), Some(Knight));
+        assert_eq!(m2.get_promo(), Some(Queen));
+    }
+
+    #[test]
+    fn kind_encodes() {
+        let m1 = Move::new(A2, A5);
+        let m2 = Move::new_with_kind(A2, A5, Normal);
+        let m3 = Move::new_with_kind(A1, A7, Castle);
+        let m4 = Move::new_with_kind(A1, F4, EnPassant);
+        let m5 = Move::new_with_kind(A1, F4, Promotion(Queen));
+
+        assert_eq!(m1.kind(), Normal);
+        assert_eq!(m2.kind(), Normal);
+        assert_eq!(m3.kind(), Castle);
+        assert_eq!(m4.kind(), EnPassant);
+        assert_eq!(m5.kind(), Promotion(Queen));
     }
 }
