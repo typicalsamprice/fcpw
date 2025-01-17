@@ -1,3 +1,5 @@
+#[cfg(feature = "magic")]
+use crate::magic;
 use std::sync::OnceLock;
 
 // TODO Precompute elements
@@ -22,6 +24,9 @@ pub fn initialize() {
     if IS_INIT.get() == Some(&true) {
         return;
     }
+
+    #[cfg(feature = "magic")]
+    magic::init_magics();
 
     // Setup for ray/line caching
     for square in BB_FULL {
@@ -111,16 +116,20 @@ pub(crate) fn king_attacks(square: Square) -> Bitboard {
     unsafe { ATT_KING[square as usize] }
 }
 
+#[cfg(not(feature = "magic"))]
 pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::diagonal())
 }
+#[cfg(not(feature = "magic"))]
 pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::orthogonal())
 }
+#[cfg(not(feature = "magic"))]
 pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     sliders(square, occupancy, &Direction::all())
 }
 
+#[cfg(not(feature = "magic"))]
 fn sliders(square: Square, occupancy: Bitboard, dirs: &[Direction]) -> Bitboard {
     let mut rv = 0.into();
 
@@ -141,4 +150,17 @@ fn sliders(square: Square, occupancy: Bitboard, dirs: &[Direction]) -> Bitboard 
     }
 
     rv
+}
+
+#[cfg(feature = "magic")]
+pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    magic::bishop_attacks(square, occupancy)
+}
+#[cfg(feature = "magic")]
+pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    magic::rook_attacks(square, occupancy)
+}
+#[cfg(feature = "magic")]
+pub(crate) fn queen_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+    magic::bishop_attacks(square, occupancy) | magic::rook_attacks(square, occupancy)
 }

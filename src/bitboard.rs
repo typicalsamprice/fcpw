@@ -36,6 +36,10 @@ impl Bitboard {
         // SAFETY: This index is less than 64, since the internal u64 is nonzero.
         unsafe { std::mem::transmute(63 - index) }
     }
+    pub unsafe fn msb_unchecked(self) -> Square {
+        assert_unchecked(self.0 != 0);
+        std::mem::transmute(63 - self.0.trailing_zeros() as u8)
+    }
 
     pub fn has(self, sq: Square) -> bool {
         (self & Self::from(sq)).0 > 0
@@ -84,6 +88,9 @@ impl Bitboard {
 
     pub const fn not(self) -> Self {
         Self(!self.0)
+    }
+    pub const fn neg(self) -> Self {
+        Self(self.0.wrapping_neg())
     }
 
     pub const fn from_rank(rank: Rank) -> Self {
@@ -205,27 +212,25 @@ impl From<Bitboard> for bool {
 
 impl From<Square> for Bitboard {
     fn from(value: Square) -> Self {
-        Self(1u64 << (value as u8))
+        Self::from_square(value)
     }
 }
 impl From<Option<Square>> for Bitboard {
     fn from(value: Option<Square>) -> Self {
         match value {
-            Some(s) => Self::from(s),
+            Some(s) => Self::from_square(s),
             None => Self::new(0),
         }
     }
 }
 impl From<File> for Bitboard {
     fn from(value: File) -> Self {
-        let bb = 0x0101010101010101u64;
-        Self(bb << (value as u8))
+        Self::from_file(value)
     }
 }
 impl From<Rank> for Bitboard {
     fn from(value: Rank) -> Self {
-        let shift = (value as u8) * 8;
-        Self(0xffu64 << shift)
+        Self::from_rank(value)
     }
 }
 impl<T> From<&[T]> for Bitboard
@@ -262,8 +267,8 @@ impl Iterator for BitboardIter {
         if u64::from(self.0) == 0 {
             None
         } else {
-            let s = self.0.lsb();
-            self.0 ^= Bitboard::from(s);
+            let s = unsafe { self.0.lsb_unchecked() };
+            self.0 &= self.0.sub(Bitboard::new(1));
             Some(s)
         }
     }
@@ -273,8 +278,8 @@ impl DoubleEndedIterator for BitboardIter {
         if u64::from(self.0) == 0 {
             None
         } else {
-            let s = self.0.msb();
-            self.0 ^= Bitboard::from(s);
+            let s = unsafe { self.0.msb_unchecked() };
+            self.0 ^= Bitboard::from_square(s);
             Some(s)
         }
     }

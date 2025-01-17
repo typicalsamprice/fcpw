@@ -1,5 +1,11 @@
 #[cfg(feature = "pext")]
-use bitintr::Pext;
+use std::arch::x86_64::_pext_u64;
+//use bitintr::Pext;
+
+#[cfg(feature = "pext")]
+fn pext(a: u64, b: u64) -> u64 {
+    unsafe { _pext_u64(a, b) }
+}
 
 use crate::piece::PieceType::{self, Bishop, Rook};
 use crate::{Bitboard, Direction, File, Rank, Square};
@@ -55,7 +61,7 @@ impl Magic {
 
     #[cfg(feature = "pext")]
     fn index(&self, occupancy: Bitboard) -> isize {
-        u64::from(occupancy).pext(u64::from(self.mask)) as isize
+        pext(u64::from(occupancy), u64::from(self.mask)) as isize
     }
 
     #[cfg(not(feature = "pext"))]
@@ -69,11 +75,10 @@ impl Magic {
     }
 }
 
-// TODO expose the API so that it is consistent no matter if 'magic' is given or not as a feature.
-pub fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+pub(crate) fn bishop_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     unsafe { BISHOP_MAGICS[square as usize] }.attack(occupancy)
 }
-pub fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
+pub(crate) fn rook_attacks(square: Square, occupancy: Bitboard) -> Bitboard {
     unsafe { ROOK_MAGICS[square as usize] }.attack(occupancy)
 }
 
@@ -148,8 +153,8 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
 
             #[cfg(feature = "pext")]
             unsafe {
-                let pext = b.into_inner().pext(m.mask.into_inner());
-                *(m.pointer.offset(pext as isize) as *mut _) = reference[size];
+                let pxt = pext(b.into_inner(), m.mask.into_inner());
+                *(m.pointer.offset(pxt as isize) as *mut _) = reference[size];
             }
 
             size += 1;
@@ -192,7 +197,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
     }
 }
 
-pub fn init_magics() {
+pub(crate) fn init_magics() {
     init_magics_for(
         &raw mut BISHOP_MAGICS as *mut Magic,
         &raw mut BISHOP_ATTACKS as *mut Bitboard,

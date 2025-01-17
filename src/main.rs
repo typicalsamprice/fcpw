@@ -29,25 +29,12 @@ fn main() {
     println!("Has feature `pext`: {}", cfg!(feature = "pext"));
 
     precompute::initialize();
-    #[cfg(feature = "magic")]
-    {
-        init_magics();
-        println!("init_magics called.");
-    }
 
-    let mut pos = Position::new_from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -");
-    pos.make_move(Move::new(B4, B1));
-    pos.make_move(Move::new(H4, G5));
-    pos.make_move(Move::new(A5, B4));
-    pos.make_move(Move::new(C7, C5));
-    println!("{pos}");
-    println!(
-        "Ray-based Bishop on E3:\n{}",
-        precompute::bishop_attacks(E3, pos.all())
-    );
-    #[cfg(feature = "magic")]
-    println!(
-        "Magic-based Bishop on E3:\n{}",
-        magic::bishop_attacks(E3, pos.all())
-    );
+    let mut pos = Position::default();
+    pos.make_move(Move::new(D2, D3));
+    pos.make_move(Move::new(A7, A6));
+    for x in generate::legal(&pos) {
+        println!("{x}");
+    }
+    println!("{}", precompute::queen_attacks(D1, 0.into()));
 }

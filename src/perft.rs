@@ -128,4 +128,18 @@ mod tests {
         "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
         [44, 1486, 62379, 2103487, 89941194]
     );
+
+    // Taken from https://lichess.org/nD3qQlh0#29
+    create_suite!(
+        my_lichess_1,
+        "r6r/pp1k2pp/3bp1q1/2p2nB1/3p2Q1/1N1P3P/PPP2PP1/R3R1K1 b - - 0 15",
+        [43, 1916, 77347, 3296388, 129476614]
+    );
+
+    // Taken from https://lichess.org/oXy9Eebe/black#42
+    create_suite!(
+        my_lichess_2,
+        "3r1rk1/1p2b1p1/n2pp1np/4p3/1P2P3/2q1NNB1/Q4PPP/R2R2K1 w - - 0 22",
+        [44, 1935, 81291, 3515320, 146996597]
+    );
 }

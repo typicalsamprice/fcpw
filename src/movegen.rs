@@ -134,6 +134,7 @@ pub mod generate {
 
         pawn_moves(pos, &mut moves);
         knight_moves(pos, &mut moves);
+        //all_sliders_at_once(pos, &mut moves);
         bishop_moves(pos, &mut moves);
         rook_moves(pos, &mut moves);
         queen_moves(pos, &mut moves);
@@ -309,6 +310,27 @@ pub mod generate {
             let atts = precompute::queen_attacks(q, pos.all()) & targets;
             for t in atts {
                 list.push(Move::new(q, t));
+            }
+        }
+    }
+
+    fn all_sliders_at_once(pos: &Position, list: &mut Vec<Move>) {
+        let us = pos.to_move();
+        let queens = pos.spec(PieceType::Queen, us);
+        let bishops = pos.spec(PieceType::Bishop, us);
+        let rooks = pos.spec(PieceType::Rook, us);
+        let targets = !pos.color(us); // XXX Can change if not wanting captures
+
+        for b in bishops | queens {
+            let atts = precompute::bishop_attacks(b, pos.all()) & targets;
+            for t in atts {
+                list.push(Move::new(b, t));
+            }
+        }
+        for r in rooks | queens {
+            let atts = precompute::rook_attacks(r, pos.all()) & targets;
+            for t in atts {
+                list.push(Move::new(r, t));
             }
         }
     }
