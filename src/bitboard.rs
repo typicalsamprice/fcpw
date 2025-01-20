@@ -9,6 +9,9 @@ use crate::square::{Direction, File, Rank, Square};
 pub struct Bitboard(u64);
 
 impl Bitboard {
+    pub const EMPTY: Self = Self(0);
+    pub const FULL: Self = Self(!0u64);
+
     #[cfg_attr(feature = "inline", inline)]
     pub const fn new(value: u64) -> Self {
         Self(value)
@@ -279,7 +282,7 @@ where
 {
     #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: &[T]) -> Self {
-        let mut rv = 0.into();
+        let mut rv = Self::EMPTY:
         for &v in value {
             rv |= v.into();
         }
@@ -293,7 +296,7 @@ where
 {
     #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: [T; N]) -> Self {
-        let mut rv = 0.into();
+        let mut rv = Self::EMPTY;
 
         for v in value {
             rv |= v.into();
