@@ -282,7 +282,7 @@ where
 {
     #[cfg_attr(feature = "inline-aggressive", inline)]
     fn from(value: &[T]) -> Self {
-        let mut rv = Self::EMPTY:
+        let mut rv = Self::EMPTY;
         for &v in value {
             rv |= v.into();
         }

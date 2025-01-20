@@ -137,7 +137,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
         let edges = (Bitboard::from([Rank::One, Rank::Eight]) & !Bitboard::from(square.rank()))
             | (Bitboard::from([File::A, File::H]) & !Bitboard::from(square.file()));
         let m = unsafe { &mut *magic_table.offset(square as isize) };
-        m.mask = slider_gen(square, 0.into(), is_rook) & !edges;
+        m.mask = slider_gen(square, Bitboard::EMPTY, is_rook) & !edges;
 
         #[cfg(not(feature = "pext"))]
         {
@@ -152,7 +152,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
         };
         size = 0;
 
-        let mut b: Bitboard = 0.into();
+        let mut b: Bitboard = Bitboard::EMPTY;
         loop {
             #[cfg(not(feature = "pext"))]
             {
@@ -181,7 +181,7 @@ fn init_magics_for(magic_table: *mut Magic, table: *mut Bitboard, is_rook: bool)
             let mut i = 0;
 
             while i < size {
-                m.magic = 0.into();
+                m.magic = Bitboard::EMPTY;
                 while (m.magic.mul(m.mask) >> 56).popcount() < 6 {
                     m.magic = Bitboard::new(prng.roll());
                 }

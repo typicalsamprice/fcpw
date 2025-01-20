@@ -135,9 +135,9 @@ impl Position {
     pub fn new() -> Self {
         Self {
             board: [None; 64],
-            colors: [Bitboard::new(0); 2],
+            colors: [Bitboard::EMPTY; 2],
             moves: 0,
-            pieces: [Bitboard::new(0); 6],
+            pieces: [Bitboard::EMPTY; 6],
             to_move: Color::White,
             // SAFETY: We just created this.
             state: Some(State::new()),
@@ -297,7 +297,7 @@ impl Position {
     }
     #[cfg_attr(feature = "inline", inline)]
     pub fn pieces_list(&self, ts: &[PieceType]) -> Bitboard {
-        let mut res: Bitboard = 0.into();
+        let mut res = Bitboard::EMPTY;
         for t in ts {
             res |= self.pieces(*t);
         }
@@ -323,7 +323,7 @@ impl Position {
 
     #[cfg_attr(feature = "inline", inline)]
     pub fn king(&self, color: Color) -> Square {
-        debug_assert_ne!(self.spec(PieceType::King, color), Bitboard::new(0));
+        debug_assert_ne!(self.spec(PieceType::King, color), Bitboard::EMPTY);
         // SAFETY: King always has to exist.
         unsafe { self.spec(PieceType::King, color).lsb_unchecked() }
     }
@@ -721,7 +721,7 @@ impl Position {
     fn update_checkers_blockers(&mut self, color: Color) {
         let king = self.king(color);
         // TODO Is it SUBSTANTIALLY better to just have slider attacks calculated separately to avoid overhead of pawn/king/knight generations?
-        let potential_pinners = self.attacks_to_with_occ(king, !color, 0.into())
+        let potential_pinners = self.attacks_to_with_occ(king, !color, Bitboard::EMPTY)
             & self.pieces_list(&[PieceType::Bishop, PieceType::Rook, PieceType::Queen]);
 
         for pp in potential_pinners {
@@ -748,9 +748,9 @@ impl State {
     #[cfg_attr(feature = "inline", inline)]
     pub fn new() -> Box<Self> {
         Box::new(Self {
-            blockers: [Bitboard::new(0); 2],
-            pinners: [Bitboard::new(0); 2],
-            checkers: Bitboard::new(0),
+            blockers: [Bitboard::EMPTY; 2],
+            pinners: [Bitboard::EMPTY; 2],
+            checkers: Bitboard::EMPTY,
             captured: None,
             castle_rights: 0,
             en_passant: None,
@@ -766,9 +766,9 @@ impl Clone for State {
         Self {
             captured: None,
             en_passant: None,
-            pinners: [Bitboard::new(0); 2],
-            blockers: [Bitboard::new(0); 2],
-            checkers: Bitboard::new(0),
+            pinners: [Bitboard::EMPTY; 2],
+            blockers: [Bitboard::EMPTY; 2],
+            checkers: Bitboard::EMPTY,
 
             halfmoves: self.halfmoves,
             castle_rights: self.castle_rights,
