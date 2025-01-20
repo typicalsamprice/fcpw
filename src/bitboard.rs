@@ -57,13 +57,18 @@ impl Bitboard {
     }
 
     #[cfg_attr(feature = "inline", inline)]
+    pub const fn const_eq(self, other: Self) -> bool {
+        self.0 == other.0
+    }
+    #[cfg_attr(feature = "inline", inline)]
     pub const fn zero(self) -> bool {
-        self.0 == 0
+        self.const_eq(Self::EMPTY)
     }
     #[cfg_attr(feature = "inline", inline)]
     pub const fn nonzero(self) -> bool {
         !self.zero()
     }
+
     #[cfg_attr(feature = "inline", inline)]
     pub fn more_than_one(self) -> bool {
         self.0 & (self.0.wrapping_sub(1)) > 0
